@@ -205,7 +205,7 @@ function VerifyCode() {
           align-items: center;
           justify-content: center;
           font-family: 'Nunito', sans-serif;
-          padding: 32px 24px;
+          padding: 20px 24px 16px;
           overflow: hidden;
         }
 
@@ -236,6 +236,8 @@ function VerifyCode() {
           flex-direction: column;
           align-items: center;
           text-align: center;
+          transform: scale(0.85);
+  transform-origin: top center;
         }
 
         .ff-icon-badge {
