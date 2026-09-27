@@ -97,16 +97,19 @@ function LoginForm() {
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
+        
+
+
         .ff-root {
-          min-height: 100svh;
-          background: #ffffff;
-          display: flex;
-          align-items: flex-start;
-          justify-content: center;
-          font-family: 'Nunito', sans-serif;
-          
-          padding: 20px 24px 16px;
-        }
+  height: 100dvh;     
+  overflow: hidden;   
+  background: #ffffff;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  font-family: 'Nunito', sans-serif;
+  padding: 20px 24px 16px;
+}
 
         .ff-container {
           width: 100%;
