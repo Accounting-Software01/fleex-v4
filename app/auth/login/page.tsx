@@ -164,11 +164,13 @@ function LoginForm() {
         }
 
         .ff-collage {
-          position: relative;
-          width: 100%;
-          height: 260px;
-          margin-bottom: 40px;
-        }
+  position: relative;
+  width: 100%;
+  height: 260px;
+  margin-bottom: 40px;
+  transform: scale(0.8);
+  transform-origin: top center;
+}
 
         .ff-collage-card {
           position: absolute;
