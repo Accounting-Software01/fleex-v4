@@ -96,16 +96,16 @@ function LoginForm() {
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        .ff-root {
-          min-height: 100svh;
-          background: #ffffff;
-          display: flex;
-          align-items: flex-start;
-          justify-content: center;
-          font-family: 'Nunito', sans-serif;
-          padding: 48px 24px 40px;
-        }
+.ff-root {
+  height: 100dvh;       /* was: min-height: 100svh */
+  overflow: hidden;      /* new */
+  background: #ffffff;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  font-family: 'Nunito', sans-serif;
+  padding: 48px 24px 40px;
+}
 
         .ff-container {
           width: 100%;
