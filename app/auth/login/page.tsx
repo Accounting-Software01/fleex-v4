@@ -104,7 +104,7 @@ function LoginForm() {
   align-items: flex-start;
   justify-content: center;
   font-family: 'Nunito', sans-serif;
-  padding: 48px 24px 40px;
+  padding: 20px 24px 16px;
 }
 
         .ff-container {
@@ -114,6 +114,8 @@ function LoginForm() {
           flex-direction: column;
           align-items: center;
           gap: 0;
+          transform: scale(0.85);
+  transform-origin: top center;
         }
 
         /* ── Logo ── */
