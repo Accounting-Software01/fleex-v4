@@ -273,7 +273,7 @@ export default function NewsCard({
 
   return (
     <>
-      <article className="relative isolate mx-auto mb-4 block w-full max-w-2xl overflow-hidden rounded-[28px] border border-[#deded9] bg-[#fbfaf6] text-[#14181c] shadow-[0_14px_35px_rgba(31,35,38,0.08)]">
+      <article className="relative isolate mx-auto mb-4 block w-full max-w-full min-w-0 overflow-hidden rounded-[28px] border border-[#deded9] bg-[#fbfaf6] text-[#14181c] shadow-[0_14px_35px_rgba(31,35,38,0.08)]">
         <div className="px-5 pb-4 pt-5 sm:px-7 sm:pb-5 sm:pt-7">
           <div className="flex items-start gap-4">
             <div
