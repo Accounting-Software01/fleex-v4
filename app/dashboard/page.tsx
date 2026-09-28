@@ -573,9 +573,10 @@ export default function DashboardPage() {
         onOpenStory={setViewingStoryUserId}
       />
 
-      <main className="max-w-md lg:max-w-5xl mx-auto px-5 py-4 grid lg:grid-cols-3 gap-6">
+      
+        <main className="mx-auto grid w-full min-w-0 max-w-full grid-cols-1 gap-6 overflow-x-hidden px-5 py-4 lg:max-w-5xl lg:grid-cols-3">
         
-        <div className="lg:col-span-2 space-y-8">
+          <div className="min-w-0 w-full max-w-full space-y-8 lg:col-span-2">
           
           {/* ── TAB 1: FOR YOU (NEWS ONLY) ─────────────────────────────────── */}
           {activeTab === 'forYou' && (
