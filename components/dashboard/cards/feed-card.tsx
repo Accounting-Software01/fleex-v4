@@ -163,10 +163,7 @@ export default function FeedCard({
   }, [mediaType, mediaUrl])
 
   return (
-    <article
-      style={{ float: 'none', width: '100%', marginLeft: 0, marginRight: 0 }}
-      className="!float-none block w-full !max-w-none self-start justify-self-stretch clear-both overflow-hidden rounded-[28px] border border-[#deded9] bg-[#fbfaf6] text-[#14181c] shadow-[0_14px_35px_rgba(31,35,38,0.08)]"
-    >
+    <article className="relative isolate box-border mx-auto mb-4 block w-full max-w-2xl overflow-hidden rounded-[28px] border border-[#deded9] bg-[#fbfaf6] text-[#14181c] shadow-[0_14px_35px_rgba(31,35,38,0.08)]">
       <div className="px-5 pb-4 pt-5 sm:px-7 sm:pb-5 sm:pt-7">
         <div className="flex items-start gap-4">
           <Avatar profile={profile} />
@@ -265,7 +262,7 @@ export default function FeedCard({
           <span>{formatCount(sharesCount)} shares</span>
         </div>
 
-        <div className="mt-5 flex items-center border-t border-[#d9d9d4] pt-4">
+        <div className="mt-5 flex min-w-0 items-center border-t border-[#d9d9d4] pt-4">
           <ActionButton
             active={isLiked}
             disabled={isLikePending}
@@ -277,23 +274,23 @@ export default function FeedCard({
             ) : (
               <Heart className="h-6 w-6" fill={isLiked ? 'currentColor' : 'none'} aria-hidden="true" />
             )}
-            <span>Appreciate</span>
+            <span className="min-w-0 truncate">Appreciate</span>
           </ActionButton>
 
           <ActionButton label="Comment on this post" onClick={onComment}>
             <MessageCircle className="h-6 w-6" aria-hidden="true" />
-            <span>Comment</span>
+            <span className="min-w-0 truncate">Comment</span>
           </ActionButton>
 
           <ActionButton label="Share this post" onClick={onShare}>
             <Share2 className="h-6 w-6" aria-hidden="true" />
-            <span>Share</span>
+            <span className="min-w-0 truncate">Share</span>
           </ActionButton>
 
           <button
             type="button"
             aria-label="Save post"
-            className="ml-auto rounded-xl p-2.5 text-[#14181c] transition-colors hover:bg-[#efefea]"
+            className="ml-1 shrink-0 rounded-xl p-2.5 text-[#14181c] transition-colors hover:bg-[#efefea]"
           >
             <Bookmark className="h-6 w-6" aria-hidden="true" />
           </button>
@@ -335,11 +332,10 @@ function ActionButton({
       aria-pressed={active}
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex min-h-12 flex-1 items-center justify-center gap-2 border-r border-[#d9d9d4] px-2 text-[0.95rem] font-semibold transition-colors last:border-r-0 disabled:opacity-50 ${
+      className={`inline-flex min-h-12 min-w-0 flex-1 items-center justify-center gap-1 overflow-hidden border-r border-[#d9d9d4] px-1 text-[0.95rem] font-semibold transition-colors last:border-r-0 disabled:opacity-50 ${
         active ? 'text-[#9ac500]' : 'text-[#14181c] hover:bg-[#efefea]'
       }`}
     >
       {children}
     </button>
-  )
-}
+  )}
