@@ -316,7 +316,9 @@ export default function NewsCard({
         </div>
 
         <div
-          className="relative mx-5 overflow-hidden rounded-[22px] bg-[#efefea] sm:mx-7"
+          
+          className="relative w-full overflow-hidden bg-[#efefea]"
+            
           onTouchStart={handleTouchStart}
           onTouchEnd={clearLongPress}
           onTouchCancel={clearLongPress}
