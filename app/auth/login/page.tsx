@@ -97,16 +97,18 @@ function LoginForm() {
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
+
+
         .ff-root {
-          position: relative;
-          min-height: 100svh;
-          background: #ffffff;
-          display: flex;
-          align-items: flex-start;
-          justify-content: center;
-          font-family: 'Nunito', sans-serif;
-          padding: 48px 24px 40px;
-        }
+  height: 100dvh;       /* was: min-height: 100svh */
+  overflow: hidden;      /* new */
+  background: #ffffff;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  font-family: 'Nunito', sans-serif;
+  padding: 20px 24px 16px;
+}
 
         .ff-faded-collage {
           position: absolute;
@@ -135,6 +137,8 @@ function LoginForm() {
           flex-direction: column;
           align-items: center;
           gap: 0;
+          transform: scale(0.9);
+  transform-origin: top center;
         }
 
         /* ── Logo ── */
@@ -179,6 +183,8 @@ function LoginForm() {
           width: 100%;
           height: 260px;
           margin-bottom: 40px;
+          transform: scale(0.8);
+  transform-origin: top center;
         }
 
         .ff-collage-card {
