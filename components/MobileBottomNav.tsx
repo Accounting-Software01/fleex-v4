@@ -14,7 +14,7 @@ export default function MobileBottomNav() {
   const supabase = createClient()
 
   // Pages where the bottom nav SHOULD appear (the app's main tab roots)
-  const navPages = ['/dashboard', '/search', '/fleex', '/messages', '/profile']
+  const navPages = ['/dashboard', '/search']
 
   useEffect(() => {
     const getUser = async () => {
