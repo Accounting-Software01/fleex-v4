@@ -1,53 +1,34 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import Image from 'next/image'
-import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-import { 
-  Heart, MessageCircle, Share2, MoreHorizontal, 
-  Check, ThumbsUp, MapPin, Flag, Bookmark,
-  Edit2, Trash2, Volume2, VolumeX
+import {
+  Bookmark,
+  Heart,
+  Loader2,
+  MessageCircle,
+  MoreHorizontal,
+  Share2,
+  Users,
 } from 'lucide-react'
-import { timeAgo } from '@/lib/dashboard/helpers'
-import CommentDrawer from '@/components/dashboard/CommentDrawer'
 
-interface FeedPost {
+export type FeedPost = {
   id: string
   user_id: string
-  content: string
-  title?: string
-  media_url?: string
-  media_type?: 'image' | 'video'
-  category?: string
-  tags?: string[]
-  feeling?: string
-  feeling_emoji?: string
-  location?: string
-  likes_count: number
-  comments_count: number
-  shares_count: number
+  content?: string | null
+  image_url?: string | null
   created_at: string
-  profiles?: {
-    id: string
-    username: string
-    display_name: string
-    avatar_url: string
-  }
+  likes_count?: number | null
+  shares_count?: number | null
+  profiles?: Profile | Profile[] | null
 }
 
-export default function FeedCard({
-  post,
-  isFollowing,
-  isLiked,
-  currentUserId,
-  commentCount,
-  onFollow,
-  onLike,
-  onComment,
-  onShare,
-  onTagClick,
-}: {
+type Profile = {
+  id: string
+  username?: string | null
+  display_name?: string | null
+  avatar_url?: string | null
+}
+
+type FeedCardProps = {
   post: FeedPost
   isFollowing: boolean
   isLiked: boolean
@@ -58,485 +39,221 @@ export default function FeedCard({
   onComment: () => void
   onShare: () => void
   onTagClick?: (tag: string) => void
-}) {
-  const supabase = createClient()
-  const creator = post?.profiles || null
-  const isOwner = currentUserId === post?.user_id
-  const contentLength = post?.content?.length || 0
-  const shouldTruncate = contentLength > 200
-  const [showFullContent, setShowFullContent] = useState(false)
-  const [showMenu, setShowMenu] = useState(false)
-  const [showCommentDrawer, setShowCommentDrawer] = useState(false)
-  const [showShareMenu, setShowShareMenu] = useState(false)
-  const [shareCopied, setShareCopied] = useState(false)
-  const [localCommentCount, setLocalCommentCount] = useState(commentCount || 0)
-  const [localLikesCount, setLocalLikesCount] = useState(post?.likes_count || 0)
-  const [localIsLiked, setLocalIsLiked] = useState(isLiked || false)
-  const [currentUserAvatar, setCurrentUserAvatar] = useState('')
-  const [currentUserDisplayName, setCurrentUserDisplayName] = useState('')
-  const [videoMuted, setVideoMuted] = useState(true)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
-  const shareRef = useRef<HTMLDivElement>(null)
+  isLikePending?: boolean
+  isFollowPending?: boolean
+}
 
-  const displayContent = shouldTruncate && !showFullContent 
-    ? post?.content?.slice(0, 200) + '...' 
-    : post?.content || ''
+const formatRelativeTime = (value: string) => {
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000))
+  if (seconds < 60) return 'now'
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d`
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(
+    new Date(value),
+  )
+}
 
-  // Sync like state with database on mount
-  useEffect(() => {
-    const syncLikeState = async () => {
-      if (!post?.id || !currentUserId) return;
-      
-      const { data, error } = await supabase
-        .from('post_likes')
-        .select('id')
-        .eq('post_id', post.id)
-        .eq('user_id', currentUserId)
-        .maybeSingle();
-      
-      if (!error) {
-        const isActuallyLiked = !!data;
-        if (isActuallyLiked !== localIsLiked) {
-          setLocalIsLiked(isActuallyLiked);
-        }
-      }
-    };
-    
-    syncLikeState();
-  }, [post?.id, currentUserId]);
+const formatCount = (value: number) => {
+  if (value < 1000) return String(value)
+  if (value < 1000000) return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k`
+  return `${(value / 1000000).toFixed(1)}m`
+}
 
-  // Fetch current user's info
-  useEffect(() => {
-    const getCurrentUserInfo = async () => {
-      if (currentUserId) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('avatar_url, display_name')
-          .eq('id', currentUserId)
-          .single()
-        if (data) {
-          setCurrentUserAvatar(data.avatar_url || '')
-          setCurrentUserDisplayName(data.display_name || 'User')
-        }
-      }
+const getProfile = (profiles: FeedPost['profiles'], userId: string): Profile => {
+  const profile = Array.isArray(profiles) ? profiles[0] : profiles
+  return (
+    profile ?? {
+      id: userId,
+      display_name: 'Fleex member',
+      username: null,
+      avatar_url: null,
     }
-    getCurrentUserInfo()
-  }, [currentUserId, supabase])
+  )
+}
 
-  // Auto-play video
-  useEffect(() => {
-    if (post?.media_type === 'video' && videoRef.current && post?.media_url) {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              videoRef.current?.play().catch(e => console.log('Video play error:', e))
-            } else {
-              videoRef.current?.pause()
-            }
-          })
-        },
-        { threshold: 0.3 }
-      )
-      observer.observe(videoRef.current)
-      return () => observer.disconnect()
-    }
-  }, [post?.media_type, post?.media_url])
+const getInitials = (profile: Profile) => {
+  const label = profile.display_name || profile.username || 'F'
+  return label
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
 
-  // Handle share
-  const handleSharePost = async () => {
-    const shareUrl = `${window.location.origin}/post/${post?.id}`
-    await navigator.clipboard.writeText(shareUrl)
-    setShareCopied(true)
-    setTimeout(() => setShareCopied(false), 2000)
-    
-    if (post?.id) {
-      await supabase
-        .from('user_feeds')
-        .update({ shares_count: (post.shares_count || 0) + 1 })
-        .eq('id', post.id)
-    }
-    
-    setShowShareMenu(false)
-    onShare()
-  }
-
-  // Handle like with duplicate protection
-  const handleLikeClick = async () => {
-    if (!post?.id || !currentUserId) return;
-    
-    const newLikedState = !localIsLiked;
-    
-    try {
-      if (newLikedState) {
-        const { error } = await supabase
-          .from('post_likes')
-          .insert({ 
-            post_id: post.id, 
-            user_id: currentUserId 
-          });
-        
-        if (error && error.code === '23505') {
-          setLocalIsLiked(true);
-          return;
-        }
-        
-        if (error) throw error;
-        
-        await supabase
-          .from('user_feeds')
-          .update({ likes_count: localLikesCount + 1 })
-          .eq('id', post.id);
-          
-        setLocalIsLiked(true);
-        setLocalLikesCount(prev => prev + 1);
-        
-      } else {
-        const { error } = await supabase
-          .from('post_likes')
-          .delete()
-          .eq('post_id', post.id)
-          .eq('user_id', currentUserId);
-        
-        if (error) throw error;
-        
-        await supabase
-          .from('user_feeds')
-          .update({ likes_count: localLikesCount - 1 })
-          .eq('id', post.id);
-          
-        setLocalIsLiked(false);
-        setLocalLikesCount(prev => prev - 1);
-      }
-      
-      onLike();
-      
-    } catch (err) {
-      console.error('Error toggling like:', err);
-    }
-  };
-
-  // Handle delete post
-  const handleDeletePost = async () => {
-    if (!confirm('Are you sure you want to delete this post?')) return
-    if (!post?.id) return
-    
-    const { error } = await supabase
-      .from('user_feeds')
-      .delete()
-      .eq('id', post.id)
-    
-    if (!error) {
-      window.location.reload()
-    }
-  }
-
-  // Toggle video mute
-  const toggleMute = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (videoRef.current) {
-      videoRef.current.muted = !videoMuted
-      setVideoMuted(!videoMuted)
-    }
-  }
-
-  // Close menus
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setShowMenu(false)
-      }
-      if (shareRef.current && !shareRef.current.contains(e.target as Node)) {
-        setShowShareMenu(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  // Touch handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const target = e.currentTarget as HTMLElement
-    target.style.transform = 'scale(0.98)'
-  }
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const target = e.currentTarget as HTMLElement
-    target.style.transform = 'scale(1)'
-  }
-
-  const tags = post?.tags || []
-
-  const handleCommentAdded = () => {
-    setLocalCommentCount(prev => prev + 1)
-  }
-
-  if (!post) return null
+export default function FeedCard({
+  post,
+  isFollowing,
+  isLiked,
+  commentCount,
+  onFollow,
+  onLike,
+  onComment,
+  onShare,
+  isLikePending = false,
+  isFollowPending = false,
+}: FeedCardProps) {
+  const profile = getProfile(post.profiles, post.user_id)
+  const authorName = profile.display_name || profile.username || 'Fleex member'
+  const likesCount = Math.max(0, post.likes_count ?? 0)
+  const sharesCount = Math.max(0, post.shares_count ?? 0)
 
   return (
-    <>
-      <article className="bg-white rounded-3xl border border-gray-200 shadow-sm mb-4 w-full max-w-2xl mx-auto overflow-hidden">
-        
-        {/* Header */}
-        <div className="px-5 pt-4 pb-3">
-          <div className="flex items-start gap-3">
-            <Link href={`/profile/${creator?.username || '#'}`}>
-              <div className="relative flex-shrink-0">
-                {creator?.avatar_url ? (
-                  <Image 
-                    src={creator.avatar_url} 
-                    alt="" 
-                    width={40} 
-                    height={40} 
-                    className="rounded-full object-cover cursor-pointer hover:opacity-90 transition" 
-                    unoptimized 
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center text-white font-bold">
-                    {creator?.display_name?.[0]?.toUpperCase() || 'U'}
-                  </div>
-                )}
-              </div>
-            </Link>
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-1">
-                <Link href={`/profile/${creator?.username || '#'}`}>
-                  <p className="font-extrabold text-black hover:underline text-sm truncate">
-                    {creator?.display_name || 'User'}
-                  </p>
-                </Link>
-                
-                {post.feeling && (
-                  <span className="text-xs text-gray-500 inline-flex items-center gap-0.5">
-                    <span>is feeling</span>
-                    <span className="font-medium text-gray-700">{post.feeling}</span>
-                    <span>{post.feeling_emoji || '😊'}</span>
-                  </span>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
-                <span>{timeAgo(post.created_at)}</span>
-                {post.location && (
-                  <>
-                    <span>•</span>
-                    <MapPin className="h-3 w-3" />
-                    <span className="truncate max-w-[100px]">{post.location}</span>
-                  </>
-                )}
-                <span>•</span>
-                <span>🌐</span>
-              </div>
+    <article className="w-full overflow-hidden rounded-[28px] border border-[#deded9] bg-[#fbfaf6] text-[#14181c] shadow-[0_14px_35px_rgba(31,35,38,0.08)]">
+      <div className="px-5 pb-4 pt-5 sm:px-7 sm:pb-5 sm:pt-7">
+        <div className="flex items-start gap-4">
+          <Avatar profile={profile} />
+
+          <div className="min-w-0 flex-1 pt-0.5">
+            <div className="truncate text-[1.06rem] font-semibold leading-tight tracking-[-0.02em]">
+              {authorName}
             </div>
-            
-            {/* Menu Button */}
-            <div className="relative flex-shrink-0" ref={menuRef}>
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="p-2 rounded-full hover:bg-gray-100 transition active:scale-95"
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
-              >
-                <MoreHorizontal className="h-5 w-5 text-gray-500" />
-              </button>
-              {showMenu && (
-                <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-10">
-                  {isOwner ? (
-                    <>
-                      <button className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3">
-                        <Edit2 className="h-4 w-4" />
-                        Edit Post
-                      </button>
-                      <button 
-                        onClick={handleDeletePost}
-                        className="w-full px-4 py-2.5 text-left text-sm text-black font-semibold hover:bg-gray-50 flex items-center gap-3"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete Post
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3">
-                        <Bookmark className="h-4 w-4" />
-                        Save Post
-                      </button>
-                      <button className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3">
-                        <Flag className="h-4 w-4" />
-                        Report
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
+            <div className="mt-1 flex items-center gap-2 text-[0.98rem] text-[#7d8387]">
+              <span>{formatRelativeTime(post.created_at)}</span>
+              <span aria-hidden="true">•</span>
+              <Users className="h-5 w-5" aria-hidden="true" />
+              <span>Friends</span>
             </div>
           </div>
+
+          {!isFollowing && profile.id !== '' && (
+            <button
+              type="button"
+              onClick={onFollow}
+              disabled={isFollowPending}
+              className="mr-1 mt-1 hidden rounded-full px-3 py-1.5 text-sm font-semibold text-[#8aae00] transition-colors hover:bg-[#efffc8] disabled:opacity-50 sm:block"
+            >
+              {isFollowPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Follow'}
+            </button>
+          )}
+
+          <button
+            type="button"
+            aria-label="More post options"
+            className="rounded-full p-1.5 text-[#7d8387] transition-colors hover:bg-[#efefea]"
+          >
+            <MoreHorizontal className="h-6 w-6" aria-hidden="true" />
+          </button>
         </div>
 
-        {/* Content */}
-        <div className="px-5 mb-4">
-          {post.title && (
-            <h3 className="text-xl font-extrabold text-black mb-2 leading-snug">{post.title}</h3>
-          )}
-          <p className="text-gray-900 text-[15px] leading-relaxed whitespace-pre-wrap">
-            {displayContent}
+        {post.content && (
+          <p className="mt-8 text-[clamp(1.7rem,4.3vw,2.55rem)] font-normal leading-[1.12] tracking-[-0.045em]">
+            {post.content}
           </p>
-          {shouldTruncate && (
-            <button
-              onClick={() => setShowFullContent(!showFullContent)}
-              className="text-sm text-gray-500 hover:text-black font-bold mt-1"
-            >
-              {showFullContent ? 'See less' : 'See more'}
-            </button>
-          )}
-        </div>
-
-        {/* Tags */}
-        {tags.length > 0 && (
-          <div className="px-5 mb-4 flex flex-wrap gap-1.5">
-            {tags.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => onTagClick?.(tag)}
-                className="text-xs font-bold text-black hover:underline transition"
-              >
-                #{tag}
-              </button>
-            ))}
-          </div>
         )}
+      </div>
 
-        {/* Media */}
-        {post.media_url && (
-          <div className="mb-2 bg-gray-100">
-            {post.media_type === 'image' ? (
-              <img
-                src={post.media_url}
-                alt="Post"
-                className="w-full max-h-[600px] min-h-[280px] object-contain cursor-pointer"
-                onClick={() => window.open(post.media_url, '_blank')}
-              />
-            ) : post.media_type === 'video' ? (
-              <div className="relative w-full max-h-[600px] min-h-[280px] flex items-center justify-center bg-gray-100">
-                <video
-                  ref={videoRef}
-                  src={post.media_url}
-                  className="w-full max-h-[600px] object-contain"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                />
-                <button
-                  onClick={toggleMute}
-                  className="absolute bottom-3 right-3 p-2 bg-black rounded-full text-white hover:bg-gray-800 transition"
-                >
-                  {videoMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                </button>
-              </div>
-            ) : null}
-          </div>
-        )}
+      {post.image_url && (
+        <div className="relative mx-5 overflow-hidden rounded-[22px] sm:mx-7">
+          <img
+            src={post.image_url}
+            alt=""
+            className="aspect-[4/3] w-full object-cover"
+            loading="lazy"
+          />
 
-        {/* Stats */}
-        <div className="px-5 py-3 flex items-center justify-between text-xs text-gray-500 border-t border-gray-200">
-          <div className="flex items-center gap-1">
-            <div className="flex -space-x-1">
-              <ThumbsUp className="h-3 w-3 fill-black text-black" />
-              <Heart className="h-3 w-3 fill-black text-black -ml-1" />
-            </div>
-            <span>{localLikesCount}</span>
+          {/* Fleex signature frame: quiet and partial, so it supports rather than covers the image. */}
+          <div className="pointer-events-none absolute -right-3 top-0 h-full w-[29%] opacity-85" aria-hidden="true">
+            <span className="absolute left-1/2 top-[-9%] h-[61%] w-[10px] -translate-x-1/2 rotate-[43deg] rounded-full bg-[#fbfaf6]" />
+            <span className="absolute left-1/2 bottom-[-9%] h-[61%] w-[10px] -translate-x-1/2 -rotate-[43deg] rounded-full bg-[#fbfaf6]" />
+            <span className="absolute right-4 top-[11%] h-5 w-5 rounded-full bg-[#b7f23a] shadow-[0_0_0_5px_rgba(183,242,58,0.16)]" />
           </div>
-          <div className="flex gap-3">
-            <button 
-              onClick={() => setShowCommentDrawer(true)}
-              className="hover:text-black transition"
-            >
-              {localCommentCount} comments
-            </button>
-            <button 
-              onClick={() => setShowShareMenu(!showShareMenu)}
-              className="hover:text-black transition"
-            >
-              {post.shares_count || 0} shares
-            </button>
+
+          <div className="pointer-events-none absolute bottom-5 left-5 text-[0.65rem] font-medium uppercase tracking-[0.28em] text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.4)]">
+            <span className="mb-3 block h-0.5 w-8 bg-white" />
+            A brighter
+            <br />
+            forward
           </div>
         </div>
+      )}
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-around px-2 py-1.5 border-t border-gray-200">
-          <button
-            onClick={handleLikeClick}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition active:scale-95 ${
-              localIsLiked ? 'text-black bg-gray-100' : 'text-gray-700 hover:bg-gray-100'
-            }`}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
+      <div className="px-5 pb-4 pt-5 sm:px-7 sm:pb-5 sm:pt-6">
+        <div className="flex items-center gap-2 text-[0.98rem] text-[#7d8387]">
+          <span>{formatCount(likesCount)} appreciates</span>
+          <span aria-hidden="true">•</span>
+          <span>{formatCount(commentCount)} comments</span>
+          <span aria-hidden="true">•</span>
+          <span>{formatCount(sharesCount)} shares</span>
+        </div>
+
+        <div className="mt-5 flex items-center border-t border-[#d9d9d4] pt-4">
+          <ActionButton
+            active={isLiked}
+            disabled={isLikePending}
+            label={isLiked ? 'Remove appreciation' : 'Appreciate this post'}
+            onClick={onLike}
           >
-            {localIsLiked ? (
-              <ThumbsUp className="h-5 w-5 fill-black" />
+            {isLikePending ? (
+              <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
             ) : (
-              <ThumbsUp className="h-5 w-5" />
+              <Heart className="h-6 w-6" fill={isLiked ? 'currentColor' : 'none'} aria-hidden="true" />
             )}
-            <span>Like</span>
-          </button>
+            <span>Appreciate</span>
+          </ActionButton>
+
+          <ActionButton label="Comment on this post" onClick={onComment}>
+            <MessageCircle className="h-6 w-6" aria-hidden="true" />
+            <span>Comment</span>
+          </ActionButton>
+
+          <ActionButton label="Share this post" onClick={onShare}>
+            <Share2 className="h-6 w-6" aria-hidden="true" />
+            <span>Share</span>
+          </ActionButton>
 
           <button
-            onClick={() => setShowCommentDrawer(true)}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-100 transition active:scale-95"
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
+            type="button"
+            aria-label="Save post"
+            className="ml-auto rounded-xl p-2.5 text-[#14181c] transition-colors hover:bg-[#efefea]"
           >
-            <MessageCircle className="h-5 w-5" />
-            Comment
+            <Bookmark className="h-6 w-6" aria-hidden="true" />
           </button>
-
-          <div className="relative flex-1" ref={shareRef}>
-            <button
-              onClick={() => setShowShareMenu(!showShareMenu)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-100 transition active:scale-95"
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-            >
-              <Share2 className="h-5 w-5" />
-              Share
-            </button>
-            {showShareMenu && (
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-10">
-                <button
-                  onClick={handleSharePost}
-                  className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
-                >
-                  {shareCopied ? (
-                    <Check className="h-4 w-4 text-black" />
-                  ) : (
-                    <Share2 className="h-4 w-4" />
-                  )}
-                  {shareCopied ? 'Copied!' : 'Copy link'}
-                </button>
-                <button className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3">
-                  Share to Feed
-                </button>
-                <button className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3">
-                  Share to Messenger
-                </button>
-              </div>
-            )}
-          </div>
         </div>
-      </article>
-
-      {/* Comment Drawer */}
-      <CommentDrawer
-        isOpen={showCommentDrawer}
-        onClose={() => setShowCommentDrawer(false)}
-        postId={post.id}
-        postType="feed"
-        currentUserId={currentUserId}
-        onCommentAdded={handleCommentAdded}
-      />
-    </>
+      </div>
+    </article>
   )
+}
+
+function Avatar({ profile }: { profile: Profile }) {
+  if (profile.avatar_url) {
+    return <img src={profile.avatar_url} alt="" className="h-14 w-14 shrink-0 rounded-full object-cover" />
+  }
+
+  return (
+    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#1f2326] text-sm font-semibold text-[#b7f23a]" aria-hidden="true">
+      {getInitials(profile)}
+    </div>
+  )
+}
+
+function ActionButton({
+  active = false,
+  disabled = false,
+  label,
+  onClick,
+  children,
+}: {
+  active?: boolean
+  disabled?: boolean
+  label: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      disabled={disabled}
+      onClick={onClick}
+      className={`inline-flex min-h-12 flex-1 items-center justify-center gap-2 border-r border-[#d9d9d4] px-2 text-[0.95rem] font-semibold transition-colors last:border-r-0 disabled:opacity-50 ${
+        active ? 'text-[#9ac500]' : 'text-[#14181c] hover:bg-[#efefea]'
+      }`}
+    >
+      {children}
+    </button>
+  )
+
 }
