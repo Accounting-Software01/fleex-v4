@@ -1,6 +1,6 @@
-
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
 import {
   Bookmark,
   Heart,
@@ -16,6 +16,12 @@ export type FeedPost = {
   user_id: string
   content?: string | null
   image_url?: string | null
+  image?: string | null
+  media_url?: string | null
+  media_type?: 'image' | 'video' | null
+  media_urls?: string[] | null
+  attachments?: unknown
+  media?: unknown
   created_at: string
   likes_count?: number | null
   shares_count?: number | null
@@ -83,6 +89,41 @@ const getInitials = (profile: Profile) => {
     .toUpperCase()
 }
 
+const isUsableImageUrl = (value: unknown): value is string => {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+const getPostImageUrl = (post: FeedPost): string | null => {
+  const candidate = post as FeedPost & Record<string, unknown>
+  const directUrl = [candidate.image_url, candidate.image, candidate.media_url].find(isUsableImageUrl)
+  if (directUrl) return directUrl
+
+  if (Array.isArray(candidate.media_urls)) {
+    const firstUrl = candidate.media_urls.find(isUsableImageUrl)
+    if (firstUrl) return firstUrl
+  }
+
+  const attachmentSource = candidate.attachments ?? candidate.media
+  if (Array.isArray(attachmentSource)) {
+    for (const attachment of attachmentSource) {
+      if (isUsableImageUrl(attachment)) return attachment
+      if (attachment && typeof attachment === 'object') {
+        const record = attachment as Record<string, unknown>
+        const url = [record.url, record.publicUrl, record.public_url, record.path].find(isUsableImageUrl)
+        if (url) return url
+      }
+    }
+  }
+
+  if (attachmentSource && typeof attachmentSource === 'object') {
+    const record = attachmentSource as Record<string, unknown>
+    const url = [record.url, record.publicUrl, record.public_url, record.path].find(isUsableImageUrl)
+    if (url) return url
+  }
+
+  return null
+}
+
 export default function FeedCard({
   post,
   isFollowing,
@@ -99,9 +140,33 @@ export default function FeedCard({
   const authorName = profile.display_name || profile.username || 'Fleex member'
   const likesCount = Math.max(0, post.likes_count ?? 0)
   const sharesCount = Math.max(0, post.shares_count ?? 0)
+  const postImageUrl = getPostImageUrl(post)
+  const mediaUrl = post.media_url || postImageUrl
+  const mediaType = post.media_type || (mediaUrl ? 'image' : null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [videoMuted, setVideoMuted] = useState(true)
+
+  useEffect(() => {
+    if (mediaType !== 'video' || !mediaUrl || !videoRef.current) return
+
+    const video = videoRef.current
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) video.play().catch(() => undefined)
+        else video.pause()
+      },
+      { threshold: 0.3 },
+    )
+
+    observer.observe(video)
+    return () => observer.disconnect()
+  }, [mediaType, mediaUrl])
 
   return (
-    <article className="w-full overflow-hidden rounded-[28px] border border-[#deded9] bg-[#fbfaf6] text-[#14181c] shadow-[0_14px_35px_rgba(31,35,38,0.08)]">
+    <article
+      style={{ float: 'none', width: '100%', marginLeft: 0, marginRight: 0 }}
+      className="!float-none block w-full !max-w-none self-start justify-self-stretch clear-both overflow-hidden rounded-[28px] border border-[#deded9] bg-[#fbfaf6] text-[#14181c] shadow-[0_14px_35px_rgba(31,35,38,0.08)]"
+    >
       <div className="px-5 pb-4 pt-5 sm:px-7 sm:pb-5 sm:pt-7">
         <div className="flex items-start gap-4">
           <Avatar profile={profile} />
@@ -145,10 +210,10 @@ export default function FeedCard({
         )}
       </div>
 
-      {post.image_url && (
+      {mediaUrl && mediaType === 'image' && (
         <div className="relative mx-5 overflow-hidden rounded-[22px] sm:mx-7">
           <img
-            src={post.image_url}
+            src={mediaUrl}
             alt=""
             className="aspect-[4/3] w-full object-cover"
             loading="lazy"
@@ -167,6 +232,27 @@ export default function FeedCard({
             <br />
             forward
           </div>
+        </div>
+      )}
+
+      {mediaUrl && mediaType === 'video' && (
+        <div className="relative mx-5 overflow-hidden rounded-[22px] bg-[#1f2326] sm:mx-7">
+          <video
+            ref={videoRef}
+            src={mediaUrl}
+            className="max-h-[600px] min-h-[280px] w-full object-contain"
+            autoPlay
+            muted={videoMuted}
+            loop
+            playsInline
+          />
+          <button
+            type="button"
+            onClick={() => setVideoMuted((muted) => !muted)}
+            className="absolute bottom-3 right-3 rounded-full bg-[#1f2326] px-3 py-1.5 text-xs font-semibold text-white"
+          >
+            {videoMuted ? 'Unmute' : 'Mute'}
+          </button>
         </div>
       )}
 
