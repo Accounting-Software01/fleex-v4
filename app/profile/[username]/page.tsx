@@ -338,7 +338,7 @@ export default function ProfilePage({ params: paramsPromise }: ProfilePageProps)
     <div className="min-h-screen w-full overflow-x-hidden bg-white pb-20 text-[#14181c]">
       <header className="sticky top-0 z-30 border-b border-[#e5e5e0] bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between">
-          <button type="button" onClick={() => router.back()} aria-label="Go back" className="rounded-full p-2 text-[#14181c] transition hover:bg-[#efefea] active:scale-95">
+          <button type="button" onClick={() => router.replace('/dashboard')} aria-label="Go back" className="rounded-full p-2 text-[#14181c] transition hover:bg-[#efefea] active:scale-95">
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div className="min-w-0 flex-1 px-3">
