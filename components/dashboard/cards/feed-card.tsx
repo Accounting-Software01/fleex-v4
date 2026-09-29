@@ -12,6 +12,7 @@ import {
   Users,
 } from 'lucide-react'
 
+
 export type FeedPost = {
   id: string
   user_id: string
