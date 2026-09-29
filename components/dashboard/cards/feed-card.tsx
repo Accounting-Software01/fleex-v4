@@ -233,7 +233,8 @@ export default function FeedCard({
       )}
 
       {mediaUrl && mediaType === 'video' && (
-        <div className="relative mx-5 overflow-hidden rounded-[22px] bg-[#1f2326] sm:mx-7">
+      
+          <div className="relative w-full overflow-hidden bg-[#efefea]">
           <video
             ref={videoRef}
             src={mediaUrl}
