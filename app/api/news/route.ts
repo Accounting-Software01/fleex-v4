@@ -1,215 +1,140 @@
 import { NextResponse } from 'next/server'
-import crypto from 'crypto'
+import { createHash } from 'node:crypto'
 
-// Multiple RSS feeds for real-time news coverage
-const RSS_FEEDS = [
-  // Tech & AI focused
-  'https://news.google.com/rss/search?q=technology+AI+programming+software+development&hl=en-US&gl=US&ceid=US:en',
-  'https://news.google.com/rss/search?q=tech+startups+innovation+entrepreneurship&hl=en-US&gl=US&ceid=US:en',
-  'https://news.google.com/rss/search?q=artificial+intelligence+machine+learning&hl=en-US&gl=US&ceid=US:en',
-  'https://news.google.com/rss/search?q=web+development+design+coding&hl=en-US&gl=US&ceid=US:en',
-  'https://news.google.com/rss/search?q=cybersecurity+privacy+data+protection&hl=en-US&gl=US&ceid=US:en',
-  'https://news.google.com/rss/search?q=cloud+computing+devops&hl=en-US&gl=US&ceid=US:en',
-  
-  // Major tech news sources
-  'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml',
-  'https://feeds.feedburner.com/TechCrunch',
-  'https://www.wired.com/feed/rss',
-  'https://www.theverge.com/rss/index.xml',
-  'https://arstechnica.com/feed/',
-  'https://www.engadget.com/rss.xml',
-  'https://www.zdnet.com/news/rss.xml',
-  'https://www.cnet.com/rss/news/',
-  'https://techcrunch.com/feed/',
-  'https://www.theverge.com/rss/full.xml',
-  'https://www.wired.com/category/tech/feed',
+type FeedConfig = {
+  url: string
+  sourceName: string
+  language: 'en' | 'ha'
+  countryCode?: string
+}
+
+const RSS_FEEDS: FeedConfig[] = [
+  // BBC English
+  { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', sourceName: 'BBC News', language: 'en' },
+  { url: 'https://feeds.bbci.co.uk/news/technology/rss.xml', sourceName: 'BBC Technology', language: 'en' },
+
+  // BBC Hausa
+  { url: 'https://feeds.bbci.co.uk/hausa/rss.xml', sourceName: 'BBC Hausa', language: 'ha' },
+
+  // Nigerian news
+  { url: 'https://www.premiumtimesng.com/feed', sourceName: 'Premium Times', language: 'en', countryCode: 'NG' },
+  { url: 'https://punchng.com/feed/', sourceName: 'Punch Newspapers', language: 'en', countryCode: 'NG' },
+  { url: 'https://www.channelstv.com/feed/', sourceName: 'Channels TV', language: 'en', countryCode: 'NG' },
+
+  // Technology and AI
+  { url: 'https://news.google.com/rss/search?q=technology+AI+programming+software+development&hl=en-US&gl=US&ceid=US:en', sourceName: 'Google News Technology', language: 'en' },
+  { url: 'https://news.google.com/rss/search?q=tech+startups+innovation+entrepreneurship&hl=en-US&gl=US&ceid=US:en', sourceName: 'Google News Startups', language: 'en' },
+  { url: 'https://news.google.com/rss/search?q=artificial+intelligence+machine+learning&hl=en-US&gl=US&ceid=US:en', sourceName: 'Google News AI', language: 'en' },
+  { url: 'https://feeds.feedburner.com/TechCrunch', sourceName: 'TechCrunch', language: 'en' },
+  { url: 'https://www.wired.com/feed/rss', sourceName: 'Wired', language: 'en' },
+  { url: 'https://www.theverge.com/rss/index.xml', sourceName: 'The Verge', language: 'en' },
+  { url: 'https://arstechnica.com/feed/', sourceName: 'Ars Technica', language: 'en' },
 ]
 
-function extractImageFromDescription(html: string): string | undefined {
-  const match = html.match(/<img[^>]+src="([^">]+)"/)
-  return match?.[1]
+function decodeEntities(value: string): string {
+  return value.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
 }
 
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '').trim()
+function stripHtml(value: string): string {
+  return decodeEntities(value.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim()
 }
 
-function decodeEntities(str: string): string {
-  return str
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
+function extractImage(value: string): string | null {
+  return value.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] ?? null
 }
 
-async function fetchRSSFeed(url: string, sourceName?: string): Promise<any[]> {
+function canonicalUrl(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl)
+    for (const key of [...url.searchParams.keys()]) {
+      if (/^(utm_|fbclid$|gclid$|mc_)/i.test(key)) url.searchParams.delete(key)
+    }
+    url.hash = ''
+    return url.toString()
+  } catch {
+    return rawUrl.trim()
+  }
+}
+
+// UUID-shaped, deterministic ID from the canonical article URL.
+// The same URL always produces the same ID, even after refreshes.
+function stableArticleId(articleUrl: string): string {
+  const hex = createHash('sha256').update(articleUrl).digest('hex').slice(0, 32).split('')
+  hex[12] = '5'
+  hex[16] = ((parseInt(hex[16], 16) & 0x3) | 0x8).toString(16)
+  return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20).join('')}`
+}
+
+async function fetchRSSFeed(feed: FeedConfig): Promise<any[]> {
   try {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
-    
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; NewsReader/2.0)',
-        Accept: 'application/rss+xml, application/xml, text/xml',
-      },
+    const timeoutId = setTimeout(() => controller.abort(), 8000)
+    const response = await fetch(feed.url, {
+      headers: { 'User-Agent': 'FleexNews/1.0', Accept: 'application/rss+xml, application/xml, text/xml' },
       signal: controller.signal,
-      next: { revalidate: 60 } // Revalidate every minute
+      next: { revalidate: 120 },
     })
-    
     clearTimeout(timeoutId)
+    if (!response.ok) return []
 
-    if (!res.ok) return []
-    const xml = await res.text()
+    const xml = await response.text()
     const articles: any[] = []
+    const itemRegex = /<item>([\s\S]*?)<\/item>/gi
+    let match: RegExpExecArray | null
 
-    const itemRegex = /<item>([\s\S]*?)<\/item>/g
-    let match
-
-    while ((match = itemRegex.exec(xml)) !== null && articles.length < 15) {
+    while ((match = itemRegex.exec(xml)) && articles.length < 20) {
       const item = match[1]
-
-      const titleMatch = item.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ||
-        item.match(/<title>([\s\S]*?)<\/title>/)
-      const linkMatch = item.match(/<link>([\s\S]*?)<\/link>/) ||
-        item.match(/<link\s+href="([^"]+)"/)
-      const descMatch = item.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) ||
-        item.match(/<description>([\s\S]*?)<\/description>/)
-      const pubDateMatch = item.match(/<pubDate>([\s\S]*?)<\/pubDate>/)
-      const sourceMatch = item.match(/<source[^>]*>([\s\S]*?)<\/source>/)
-
+      const titleMatch = item.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/i) || item.match(/<title>([\s\S]*?)<\/title>/i)
+      const linkMatch = item.match(/<link>([\s\S]*?)<\/link>/i) || item.match(/<link\s+href=["']([^"']+)["']/i)
+      const descMatch = item.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/i) || item.match(/<description>([\s\S]*?)<\/description>/i)
+      const dateMatch = item.match(/<pubDate>([\s\S]*?)<\/pubDate>/i)
       if (!titleMatch || !linkMatch) continue
 
-      const rawTitle = decodeEntities(titleMatch[1].trim())
-      // Clean title from source suffix
+      const url = canonicalUrl(decodeEntities(linkMatch[1].trim()))
+      const rawTitle = stripHtml(titleMatch[1])
       const titleParts = rawTitle.split(' - ')
-      const cleanTitle = titleParts.length > 1 
-        ? titleParts.slice(0, -1).join(' - ') 
-        : rawTitle
-      
-      // Determine source name
-      let finalSourceName = sourceName || 'Tech News'
-      if (sourceMatch) {
-        finalSourceName = decodeEntities(sourceMatch[1].trim())
-      } else if (titleParts.length > 1 && !sourceName) {
-        finalSourceName = titleParts[titleParts.length - 1]
-      } else if (url.includes('techcrunch')) {
-        finalSourceName = 'TechCrunch'
-      } else if (url.includes('wired')) {
-        finalSourceName = 'Wired'
-      } else if (url.includes('theverge')) {
-        finalSourceName = 'The Verge'
-      } else if (url.includes('nytimes')) {
-        finalSourceName = 'NY Times'
-      }
-
-      const descRaw = descMatch?.[1] || ''
-      const urlToImage = extractImageFromDescription(descRaw)
-      const description = stripHtml(decodeEntities(descRaw)).slice(0, 300)
-
-      const articleUrl = linkMatch[1].trim()
-      const id = crypto.createHash('md5').update(articleUrl + Date.now()).digest('hex')
-
-      let pubDate = new Date()
-      if (pubDateMatch) {
-        const parsed = new Date(pubDateMatch[1].trim())
-        if (!isNaN(parsed.getTime())) pubDate = parsed
-      }
+      const title = titleParts.length > 1 ? titleParts.slice(0, -1).join(' - ') : rawTitle
+      const parsedDate = dateMatch ? new Date(stripHtml(dateMatch[1])) : new Date()
 
       articles.push({
-        id,
-        title: cleanTitle,
-        description,
-        url: articleUrl,
-        urlToImage: urlToImage || null,
-        source: { name: finalSourceName },
-        publishedAt: pubDate.toISOString(),
+        id: stableArticleId(url),
+        external_id: createHash('sha256').update(url).digest('hex'),
+        title,
+        description: stripHtml(descMatch?.[1] ?? '').slice(0, 500),
+        url,
+        urlToImage: extractImage(descMatch?.[1] ?? ''),
+        source: { name: feed.sourceName },
+        sourceLanguage: feed.language,
+        countryCode: feed.countryCode ?? null,
+        publishedAt: Number.isNaN(parsedDate.getTime()) ? new Date().toISOString() : parsedDate.toISOString(),
       })
     }
     return articles
   } catch (error) {
-    console.error(`Failed to fetch ${url}:`, error)
+    console.error(`[News API] Failed to fetch ${feed.sourceName}:`, error)
     return []
   }
 }
 
-// Shuffle array for variety
-function shuffleArray<T>(arr: T[]): T[] {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-  return arr
-}
-
 export const runtime = 'nodejs'
-export const maxDuration = 30 // Extended timeout for multiple feeds
+export const maxDuration = 30
 
 export async function GET(request: Request) {
-  const startTime = Date.now()
-  
-  try {
-    const url = new URL(request.url)
-    const refresh = url.searchParams.get('refresh') === 'true'
-    const limit = parseInt(url.searchParams.get('limit') || '100')
-    
-    // Fetch from multiple sources in parallel
-    console.log('[News API] Fetching from', RSS_FEEDS.length, 'sources...')
-    
-    const feedPromises = RSS_FEEDS.map(feed => fetchRSSFeed(feed))
-    const feedResults = await Promise.allSettled(feedPromises)
-    
-    // Collect all successful articles
-    let allArticles: any[] = []
-    for (const result of feedResults) {
-      if (result.status === 'fulfilled') {
-        allArticles.push(...result.value)
-      }
+  const startedAt = Date.now()
+  const url = new URL(request.url)
+  const limit = Math.min(Number(url.searchParams.get('limit') || 100), 150)
+  const refresh = url.searchParams.get('refresh') === 'true'
+
+  const results = await Promise.allSettled(RSS_FEEDS.map(fetchRSSFeed))
+  const articlesByUrl = new Map<string, any>()
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      for (const article of result.value) if (!articlesByUrl.has(article.url)) articlesByUrl.set(article.url, article)
     }
-    
-    // Deduplicate by URL (keep the first occurrence)
-    const uniqueArticles = new Map()
-    for (const article of allArticles) {
-      if (!uniqueArticles.has(article.url)) {
-        uniqueArticles.set(article.url, article)
-      }
-    }
-    
-    // Sort by date (newest first)
-    let articles = Array.from(uniqueArticles.values())
-      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-      .slice(0, limit)
-    
-    // Shuffle if refresh requested (fresh feel)
-    if (refresh && articles.length > 0) {
-      articles = shuffleArray(articles)
-    }
-    
-    const duration = Date.now() - startTime
-    console.log(`[News API] Fetched ${articles.length} unique articles from ${RSS_FEEDS.length} sources in ${duration}ms`)
-    
-    return NextResponse.json(
-      { 
-        articles, 
-        count: articles.length,
-        sources: RSS_FEEDS.length,
-        lastUpdated: new Date().toISOString(),
-        duration: `${duration}ms`
-      },
-      {
-        headers: {
-          'Cache-Control': refresh 
-            ? 'no-cache, no-store, must-revalidate, max-age=0'
-            : 'public, s-maxage=120, stale-while-revalidate=300', // Cache 2 minutes
-        },
-      }
-    )
-  } catch (err: any) {
-    console.error('[News API] Error:', err)
-    return NextResponse.json(
-      { error: err.message || 'Failed to fetch news', articles: [] },
-      { status: 500 }
-    )
   }
+
+  let articles = [...articlesByUrl.values()].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()).slice(0, limit)
+  if (refresh) articles = articles.sort(() => Math.random() - 0.5)
+
+  return NextResponse.json({ articles, count: articles.length, sources: RSS_FEEDS.length, lastUpdated: new Date().toISOString(), duration: `${Date.now() - startedAt}ms` }, { headers: { 'Cache-Control': refresh ? 'no-store' : 'public, s-maxage=120, stale-while-revalidate=300' } })
 }
