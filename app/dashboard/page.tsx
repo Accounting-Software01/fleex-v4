@@ -658,28 +658,6 @@ function DashboardPageInner() {
         
           <div className="min-w-0 w-full max-w-full space-y-8 lg:col-span-2">
           
-          {/* ── TAB 1: FOR YOU (NEWS ONLY) ─────────────────────────────────── */}
-          {activeTab === 'forYou' && (
-            <>
-              {/* Trending Tags Section */}
-              <div className="overflow-hidden">
-                <div className="flex items-center gap-2 mb-3">
-                  <TrendingUp className="h-3.5 w-3.5 text-black" />
-                  <span className="text-[11px] font-extrabold text-gray-500 uppercase tracking-widest">Trending Now</span>
-                </div>
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
-                  {TRENDING.map(tag => (
-                    <button 
-                      key={tag} 
-                      onClick={() => handleTagClick(tag)}
-                      className="flex-shrink-0 text-xs font-bold px-4 py-2.5 rounded-full bg-white border border-gray-300 text-black whitespace-nowrap active:bg-gray-100 transition"
-                    >
-                      #{tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* News Feed Section */}
               <section>
                 <div className="flex items-center justify-between mb-4">
