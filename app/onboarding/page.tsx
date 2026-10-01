@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowRight, Check, ChevronLeft, ChevronRight, Flame, Sparkles, Users, Zap } from 'lucide-react'
 
@@ -13,6 +14,7 @@ const slides = [
     icon: Flame,
     accent: 'bg-[#b7f23a]',
     glow: 'bg-[#b7f23a]/20',
+    collage: ['/collage-01.jpg', '/collage-02.jpg', '/collage-03.jpg'],
   },
   {
     eyebrow: 'Make something worth watching',
@@ -21,6 +23,7 @@ const slides = [
     icon: Zap,
     accent: 'bg-[#d8ff72]',
     glow: 'bg-[#8dc400]/20',
+    collage: ['/collage-04.jpg', '/collage-05.jpg', '/collage-06.jpg'],
   },
   {
     eyebrow: 'Find your people',
@@ -29,6 +32,7 @@ const slides = [
     icon: Users,
     accent: 'bg-[#b7f23a]',
     glow: 'bg-[#b7f23a]/20',
+    collage: ['/collage-07.jpg', '/collage-08.jpg', '/collage-09.jpg'],
   },
 ]
 
@@ -36,6 +40,23 @@ const interests = [
   'Technology', 'Art & Design', 'Music', 'Gaming', 'Fitness', 'Food',
   'Travel', 'Fashion', 'Education', 'Business', 'Comedy', 'Sports',
 ]
+
+function CollageVisual({ images, step }: { images: string[]; step: number }) {
+  return (
+    <div className="relative mx-auto mb-8 h-52 w-64 sm:h-60 sm:w-72" aria-label={`Onboarding collage ${step + 1}`}>
+      <div className="absolute left-1/2 top-1/2 h-44 w-56 -translate-x-1/2 -translate-y-1/2 rotate-[-7deg] overflow-hidden border-[5px] border-white bg-[#eef0ec] shadow-[0_18px_35px_rgba(20,24,28,0.16)] sm:h-48 sm:w-64">
+        <Image src={images[0]} alt="" fill sizes="256px" className="object-cover" priority={step === 0} />
+      </div>
+      <div className="absolute right-0 top-0 h-32 w-40 rotate-[7deg] overflow-hidden border-[5px] border-white bg-[#eef0ec] shadow-[0_14px_28px_rgba(20,24,28,0.14)] sm:h-36 sm:w-44">
+        <Image src={images[1]} alt="" fill sizes="176px" className="object-cover" priority={step === 0} />
+      </div>
+      <div className="absolute bottom-0 right-5 h-28 w-44 rotate-[-3deg] overflow-hidden border-[5px] border-white bg-[#eef0ec] shadow-[0_14px_28px_rgba(20,24,28,0.14)] sm:h-32 sm:w-48">
+        <Image src={images[2]} alt="" fill sizes="192px" className="object-cover" priority={step === 0} />
+      </div>
+      <span className="absolute right-[-4px] top-[-8px] flex h-9 w-9 items-center justify-center rounded-full border-4 border-[#f7f8f5] bg-white text-xs font-black shadow-sm">{step + 1}</span>
+    </div>
+  )
+}
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -95,18 +116,17 @@ export default function OnboardingPage() {
 
   const isInterestStep = step === slides.length
   const currentSlide = slides[Math.min(step, slides.length - 1)]
-  const CurrentIcon = currentSlide.icon
   const progress = isInterestStep ? 100 : ((step + 1) / (slides.length + 1)) * 100
 
   return (
-    <main className="relative flex min-h-[100dvh] overflow-hidden bg-[#f7f8f5] text-[#14181c]">
+    <main className="relative flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#f7f8f5] text-[#14181c]">
       <div className="pointer-events-none absolute -left-40 -top-40 h-96 w-96 rounded-full bg-[#b7f23a]/20 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-48 -right-40 h-[28rem] w-[28rem] rounded-full bg-[#dfeeb5]/60 blur-3xl" />
 
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-5 py-5 sm:px-8 sm:py-7">
+      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col overflow-hidden px-5 py-5 sm:px-8 sm:py-7">
         <header className="flex items-center justify-between">
           <button type="button" onClick={() => step > 0 && goToStep(step - 1)} className={`inline-flex items-center gap-2 text-sm font-bold transition ${step > 0 ? 'text-[#14181c] hover:opacity-60' : 'pointer-events-none opacity-0'}`}><ChevronLeft className="h-4 w-4" /> Back</button>
-          <div className="flex items-center gap-2"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#14181c] text-[#b7f23a] shadow-lg"><Sparkles className="h-4 w-4" /></div><span className="text-lg font-black tracking-[-0.06em]">fleex<span className="text-[#8dbb00]">.</span></span></div>
+          <div className="flex items-center gap-3"><Image src="/logo.png" alt="Fleex logo" width={48} height={48} priority className="h-12 w-12 object-contain" /><span className="text-[1.7rem] font-black lowercase leading-none tracking-[-0.08em]">fleex<span className="text-[#8dbb00]">.</span></span></div>
           <button type="button" onClick={() => router.replace('/dashboard')} className="text-xs font-bold text-[#7d8387] transition hover:text-[#14181c]">Skip</button>
         </header>
 
@@ -115,14 +135,10 @@ export default function OnboardingPage() {
           <div className="h-1.5 overflow-hidden rounded-full bg-[#e1e4de]"><div className="h-full rounded-full bg-[#14181c] transition-all duration-500" style={{ width: `${progress}%` }} /></div>
         </div>
 
-        <section key={step} className={`mx-auto flex w-full max-w-xl flex-1 flex-col justify-center py-10 ${direction === 'forward' ? 'animate-onboard-forward' : 'animate-onboard-back'}`}>
+        <section key={step} className={`mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col justify-center overflow-hidden py-6 ${direction === 'forward' ? 'animate-onboard-forward' : 'animate-onboard-back'}`}>
           {!isInterestStep ? (
             <div className="text-center">
-              <div className="relative mx-auto mb-9 flex h-36 w-36 items-center justify-center rounded-[38px] bg-[#14181c] shadow-[0_24px_55px_rgba(20,24,28,0.18)] sm:h-44 sm:w-44">
-                <div className={`absolute inset-4 rounded-[28px] ${currentSlide.glow} blur-xl`} />
-                <div className={`relative flex h-20 w-20 items-center justify-center rounded-3xl ${currentSlide.accent} rotate-[-6deg] transition-transform duration-500`}><CurrentIcon className="h-10 w-10 text-[#14181c]" strokeWidth={2.2} /></div>
-                <span className="absolute -right-3 -top-3 flex h-9 w-9 items-center justify-center rounded-full border-4 border-[#f7f8f5] bg-white text-xs font-black">{step + 1}</span>
-              </div>
+              <CollageVisual images={currentSlide.collage} step={step} />
               <p className="mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-[#779f00]">{currentSlide.eyebrow}</p>
               <h1 className="text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-6xl">{currentSlide.title}</h1>
               <p className="mx-auto mt-6 max-w-md text-base leading-relaxed text-[#687074] sm:text-lg">{currentSlide.description}</p>
