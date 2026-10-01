@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthGate } from '@/contexts/AuthGateContext'
-import { Search, Plus, X, ChevronRight, Settings, LogOut, User, Bookmark, CreditCard, HelpCircle, Shield, Gem } from 'lucide-react'
+import { Search, Plus, X, ChevronRight, Settings, LogOut, User, Bookmark, CreditCard, HelpCircle, Shield, Gem, WalletCards } from 'lucide-react'
 
 const drawerMenuItems = [
   { icon: User, label: 'Profile', href: '/profile' },
@@ -14,6 +14,7 @@ const drawerMenuItems = [
   { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
   { icon: Gem, label: 'Premium Features', href: '/dashboard/premium' },
   { icon: Bookmark, label: 'Saved', href: '/dashboard/saved' },
+  { icon: WalletCards, label: 'Earnings', href: '/dashboard/earnings' },
   { icon: HelpCircle, label: 'Help & Support', href: '/dashboard/support' },
   { icon: Shield, label: 'Privacy & Security', href: '/dashboard/privacy' },
 ]
