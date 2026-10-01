@@ -182,10 +182,10 @@ function VerifyCode() {
               <h1 className="ff-heading">Email verified</h1>
               <p className="ff-subtext">You&apos;re all set — let&apos;s get your Face set up.</p>
 
-              <button className="ff-btn-primary" onClick={() => router.push('/onboarding')}>
-                Continue to onboarding
-                <ArrowRight size={18} />
-              </button>
+              <button className="ff-btn-primary" onClick={() => router.push('/onboarding/profile')}>
+  Set up my profile
+  <ArrowRight size={18} />
+</button>
             </>
           )}
 
