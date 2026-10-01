@@ -1,26 +1,26 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { 
-  X, Image as ImageIcon, Video, Send, Loader2, 
-  MapPin, Smile, AtSign, Heart, ThumbsUp, 
-  Frown, Meh, Zap, Coffee, PartyPopper, 
-  Trash2, Sparkles, XCircle, CheckCircle
+import {
+  CheckCircle, Image as ImageIcon, Loader2, MapPin, Send, Sparkles,
+  Trash2, Video, X, XCircle, Smile, Heart, ThumbsUp, Frown, Meh,
+  Zap, Coffee, PartyPopper,
 } from 'lucide-react'
 
 const FEELINGS = [
-  { emoji: '😊', label: 'Happy', icon: Smile, color: 'text-yellow-500' },
-  { emoji: '❤️', label: 'Loving', icon: Heart, color: 'text-red-500' },
-  { emoji: '👍', label: 'Grateful', icon: ThumbsUp, color: 'text-blue-500' },
-  { emoji: '😢', label: 'Sad', icon: Frown, color: 'text-blue-400' },
-  { emoji: '😐', label: 'Okay', icon: Meh, color: 'text-gray-500' },
-  { emoji: '⚡', label: 'Excited', icon: Zap, color: 'text-yellow-500' },
-  { emoji: '☕', label: 'Chilling', icon: Coffee, color: 'text-amber-600' },
-  { emoji: '🎉', label: 'Celebrating', icon: PartyPopper, color: 'text-purple-500' },
+  { emoji: '😊', label: 'Happy', icon: Smile },
+  { emoji: '❤️', label: 'Loving', icon: Heart },
+  { emoji: '👍', label: 'Grateful', icon: ThumbsUp },
+  { emoji: '😢', label: 'Sad', icon: Frown },
+  { emoji: '😐', label: 'Okay', icon: Meh },
+  { emoji: '⚡', label: 'Excited', icon: Zap },
+  { emoji: '☕', label: 'Chilling', icon: Coffee },
+  { emoji: '🎉', label: 'Celebrating', icon: PartyPopper },
 ]
 
 type PostStatus = 'idle' | 'uploading' | 'success' | 'error'
+type MediaItem = { file: File; preview: string }
 
 interface CreatePostModalProps {
   isOpen: boolean
@@ -29,456 +29,204 @@ interface CreatePostModalProps {
   userId: string
 }
 
+const MAX_IMAGES = 10
+const MAX_FILE_SIZE = 50 * 1024 * 1024
+
 export default function CreatePostModal({ isOpen, onClose, onPostCreated, userId }: CreatePostModalProps) {
   const supabase = createClient()
-  
   const [content, setContent] = useState('')
-  const [selectedFeeling, setSelectedFeeling] = useState<typeof FEELINGS[0] | null>(null)
-  const [mediaFile, setMediaFile] = useState<File | null>(null)
-  const [mediaPreview, setMediaPreview] = useState<string | null>(null)
-  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null)
+  const [selectedFeeling, setSelectedFeeling] = useState<typeof FEELINGS[number] | null>(null)
+  const [images, setImages] = useState<MediaItem[]>([])
+  const [video, setVideo] = useState<MediaItem | null>(null)
   const [postStatus, setPostStatus] = useState<PostStatus>('idle')
   const [statusMessage, setStatusMessage] = useState('')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [showFeelingPicker, setShowFeelingPicker] = useState(false)
   const [showSuccessToast, setShowSuccessToast] = useState(false)
-  
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (textareaRef.current && isOpen) {
-      textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`
+    if (!isOpen) return
+    const textarea = textareaRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`
     }
   }, [content, isOpen])
 
   useEffect(() => {
-    if (!isOpen) {
-      resetForm()
-    }
+    if (!isOpen) resetForm()
+    // The modal intentionally resets when it closes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
   const resetForm = () => {
+    images.forEach((item) => URL.revokeObjectURL(item.preview))
+    if (video) URL.revokeObjectURL(video.preview)
     setContent('')
     setSelectedFeeling(null)
-    setMediaFile(null)
-    if (mediaPreview) URL.revokeObjectURL(mediaPreview)
-    setMediaPreview(null)
-    setMediaType(null)
+    setImages([])
+    setVideo(null)
     setPostStatus('idle')
     setStatusMessage('')
     setUploadProgress(0)
     setShowFeelingPicker(false)
-  }
-
-  const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    const isValidImage = type === 'image' && file.type.startsWith('image/')
-    const isValidVideo = type === 'video' && file.type.startsWith('video/')
-    
-    if (!isValidImage && !isValidVideo) {
-      setStatusMessage(`Please select a valid ${type} file`)
-      setPostStatus('error')
-      setTimeout(() => setPostStatus('idle'), 3000)
-      return
-    }
-
-    if (file.size > 50 * 1024 * 1024) {
-      setStatusMessage('File size must be less than 50MB')
-      setPostStatus('error')
-      setTimeout(() => setPostStatus('idle'), 3000)
-      return
-    }
-
-    setMediaFile(file)
-    setMediaType(type)
-    setMediaPreview(URL.createObjectURL(file))
-  }
-
-  const removeMedia = () => {
-    if (mediaPreview) URL.revokeObjectURL(mediaPreview)
-    setMediaFile(null)
-    setMediaPreview(null)
-    setMediaType(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (imageInputRef.current) imageInputRef.current.value = ''
     if (videoInputRef.current) videoInputRef.current.value = ''
   }
 
-  const uploadMedia = async (): Promise<string | null> => {
-    if (!mediaFile || !userId) return null
-    
-    const timestamp = Date.now()
-    const randomString = Math.random().toString(36).substring(2, 8)
-    const fileExt = mediaFile.name.split('.').pop()
-    const fileName = `${userId}/${timestamp}_${randomString}.${fileExt}`
-    const filePath = `feeds/${fileName}`
-    
-    try {
-      const { error: uploadError } = await supabase.storage
-        .from('feed-media')
-        .upload(filePath, mediaFile, {
-          cacheControl: '3600',
-          upsert: false
-        })
-      
-      if (uploadError) throw new Error(uploadError.message)
-      
-      const { data: { publicUrl } } = supabase.storage
-        .from('feed-media')
-        .getPublicUrl(filePath)
-      
-      return publicUrl
-      
-    } catch (err) {
-      console.error('Upload error:', err)
-      throw err
+  const showError = (message: string) => {
+    setStatusMessage(message)
+    setPostStatus('error')
+    window.setTimeout(() => {
+      setPostStatus((current) => current === 'error' ? 'idle' : current)
+      setStatusMessage('')
+    }, 3000)
+  }
+
+  const handleImagesSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    if (!files.length) return
+    if (video) {
+      showError('Remove the video before adding images.')
+      return
     }
+    if (images.length + files.length > MAX_IMAGES) {
+      showError(`You can add up to ${MAX_IMAGES} images per post.`)
+      return
+    }
+
+    const invalid = files.find((file) => !file.type.startsWith('image/') || file.size > MAX_FILE_SIZE)
+    if (invalid) {
+      showError(`${invalid.name} must be an image smaller than 50MB.`)
+      return
+    }
+    setImages((current) => [...current, ...files.map((file) => ({ file, preview: URL.createObjectURL(file) }))])
+    event.target.value = ''
+  }
+
+  const handleVideoSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (images.length) {
+      showError('Remove the images before adding a video.')
+      return
+    }
+    if (!file.type.startsWith('video/')) {
+      showError('Please choose a valid video file.')
+      return
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      showError('Video files must be smaller than 50MB.')
+      return
+    }
+    if (video) URL.revokeObjectURL(video.preview)
+    setVideo({ file, preview: URL.createObjectURL(file) })
+    event.target.value = ''
+  }
+
+  const removeImage = (index: number) => {
+    const item = images[index]
+    if (item) URL.revokeObjectURL(item.preview)
+    setImages((current) => current.filter((_, itemIndex) => itemIndex !== index))
+  }
+
+  const removeVideo = () => {
+    if (video) URL.revokeObjectURL(video.preview)
+    setVideo(null)
+    if (videoInputRef.current) videoInputRef.current.value = ''
+  }
+
+  const uploadFile = async (file: File, index: number, total: number) => {
+    const extension = file.name.split('.').pop()?.toLowerCase() || 'bin'
+    const path = `feeds/${userId}/${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}.${extension}`
+    const { error } = await supabase.storage.from('feed-media').upload(path, file, { cacheControl: '3600', upsert: false })
+    if (error) throw new Error(error.message)
+    const { data } = supabase.storage.from('feed-media').getPublicUrl(path)
+    setUploadProgress(25 + Math.round(((index + 1) / total) * 50))
+    return data.publicUrl
   }
 
   const handleSubmit = async () => {
-    if (!content.trim() && !mediaFile) {
-      setStatusMessage('Please write something or add media')
-      setPostStatus('error')
-      setTimeout(() => setPostStatus('idle'), 3000)
+    if (!content.trim() && !images.length && !video) {
+      showError('Write something or add media before posting.')
       return
     }
-    
-    // Start uploading
     setPostStatus('uploading')
     setStatusMessage('Preparing your post...')
     setUploadProgress(10)
-    
+
     try {
-      let mediaUrl = null
-      if (mediaFile) {
-        setStatusMessage('Uploading media...')
-        setUploadProgress(30)
-        mediaUrl = await uploadMedia()
-        setUploadProgress(70)
-        if (!mediaUrl) throw new Error('Failed to upload media')
+      const files = video ? [video.file] : images.map((item) => item.file)
+      const urls: string[] = []
+      if (files.length) {
+        setStatusMessage(`Uploading ${files.length > 1 ? `${files.length} images` : 'media'}...`)
+        for (let index = 0; index < files.length; index += 1) urls.push(await uploadFile(files[index], index, files.length))
       }
-      
+
       setStatusMessage('Creating your post...')
       setUploadProgress(85)
-      
-      // Build post content with feeling if selected
-      let finalContent = content
-      if (selectedFeeling) {
-        finalContent = `Feeling ${selectedFeeling.label} ${selectedFeeling.emoji}\n\n${content}`
-      }
-      
-      const { data, error: insertError } = await supabase
-        .from('user_feeds')
-        .insert({
-          user_id: userId,
-          content: finalContent.trim(),
-          media_url: mediaUrl,
-          media_type: mediaType,
-          feeling: selectedFeeling?.label,
-          feeling_emoji: selectedFeeling?.emoji,
-          created_at: new Date().toISOString(),
-        })
-        .select()
-      
-      if (insertError) throw new Error(insertError.message)
-      
+      const finalContent = selectedFeeling
+        ? `Feeling ${selectedFeeling.label} ${selectedFeeling.emoji}\n\n${content}`
+        : content
+      const mediaType = video ? 'video' : urls.length ? 'image' : null
+      const { data, error } = await supabase.from('user_feeds').insert({
+        user_id: userId,
+        content: finalContent.trim(),
+        media_url: urls[0] || null,
+        media_urls: urls.length ? urls : null,
+        media_type: mediaType,
+        feeling: selectedFeeling?.label,
+        feeling_emoji: selectedFeeling?.emoji,
+        created_at: new Date().toISOString(),
+      }).select().single()
+      if (error) throw new Error(error.message)
+
       setUploadProgress(100)
-      setStatusMessage('Success! Your post is live')
+      setStatusMessage('Your post is live')
       setPostStatus('success')
-      
-      // Show success toast
       setShowSuccessToast(true)
-      
-      // ✅ DISPATCH REAL-TIME EVENT - This makes the post appear immediately
-      window.dispatchEvent(new CustomEvent('postCreated', { 
-        detail: { 
-          success: true, 
-          post: data?.[0] || null 
-        } 
-      }))
-      
-      // Call the callback
+      window.dispatchEvent(new CustomEvent('postCreated', { detail: { success: true, post: data } }))
       onPostCreated()
-      
-      // Close modal after success
-      setTimeout(() => {
-        setShowSuccessToast(false)
-        onClose()
-      }, 1500)
-      
-    } catch (err) {
-      console.error('Error creating post:', err)
-      setStatusMessage(err instanceof Error ? err.message : 'Failed to create post')
-      setPostStatus('error')
-      
-      // Reset error after 3 seconds
-      setTimeout(() => {
-        if (postStatus === 'error') {
-          setPostStatus('idle')
-          setStatusMessage('')
-        }
-      }, 3000)
+      window.setTimeout(() => { setShowSuccessToast(false); onClose() }, 1200)
+    } catch (error) {
+      console.error('Error creating post:', error)
+      showError(error instanceof Error ? error.message : 'Failed to create post')
     }
   }
 
   if (!isOpen) return null
+  const mediaCount = images.length + (video ? 1 : 0)
 
   return (
     <>
-      {/* Success Toast Notification */}
-      {showSuccessToast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] animate-slide-down">
-          <div className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-full shadow-lg">
-            <CheckCircle className="h-4 w-4" />
-            <span className="text-sm font-medium">Post created successfully!</span>
-          </div>
-        </div>
-      )}
+      {showSuccessToast && <div className="fixed left-1/2 top-5 z-[70] -translate-x-1/2"><div className="flex items-center gap-2 rounded-full bg-[#b7f23a] px-4 py-2.5 text-sm font-bold text-[#14181c] shadow-xl"><CheckCircle className="h-4 w-4" /> Post created successfully</div></div>}
+      <div className="fixed inset-0 z-50 bg-[#14181c]/70 backdrop-blur-md" onClick={postStatus === 'uploading' ? undefined : onClose} />
+      <div className="fixed left-1/2 top-1/2 z-50 flex max-h-[92dvh] w-[calc(100%-24px)] max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[28px] border border-[#e2e5df] bg-[#f7f8f5] text-[#14181c] shadow-2xl">
+        <header className="flex items-center justify-between border-b border-[#e2e5df] bg-white/80 px-5 py-4 backdrop-blur-xl">
+          <div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#14181c] text-[#b7f23a]"><Sparkles className="h-4 w-4" /></div><div><h2 className="text-sm font-extrabold">Create a post</h2><p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#7d8387]">Share something worth watching</p></div></div>
+          {postStatus !== 'uploading' && <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-2 text-[#7d8387] hover:bg-[#eef0eb] hover:text-[#14181c]"><X className="h-5 w-5" /></button>}
+        </header>
 
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 animate-fade-in"
-        onClick={onClose}
-      />
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          {postStatus !== 'idle' && <div className={`mb-4 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold ${postStatus === 'uploading' ? 'bg-[#eef8d6] text-[#557500]' : postStatus === 'success' ? 'bg-[#e7f7ed] text-[#237041]' : 'bg-[#fff0f0] text-[#b33b3b]'}`}>{postStatus === 'uploading' && <Loader2 className="h-4 w-4 animate-spin" />}{postStatus === 'success' && <CheckCircle className="h-4 w-4" />}{postStatus === 'error' && <XCircle className="h-4 w-4" />}{statusMessage}</div>}
+          {postStatus === 'uploading' && <div className="mb-5"><div className="h-1.5 overflow-hidden rounded-full bg-[#e1e4de]"><div className="h-full rounded-full bg-[#b7f23a] transition-all" style={{ width: `${uploadProgress}%` }} /></div><p className="mt-1 text-center text-[11px] font-semibold text-[#7d8387]">{uploadProgress < 85 ? 'Uploading media...' : 'Almost done...'}</p></div>}
 
-      {/* Modal */}
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-2xl shadow-2xl z-50 animate-scale-in overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-orange-500" />
-            <h2 className="text-lg font-semibold text-gray-900">Create Post</h2>
-          </div>
-          {postStatus !== 'uploading' && (
-            <button
-              onClick={onClose}
-              className="p-1 rounded-full hover:bg-gray-100 transition"
-            >
-              <X className="h-5 w-5 text-gray-500" />
-            </button>
-          )}
+          <button type="button" onClick={() => setShowFeelingPicker((value) => !value)} disabled={postStatus === 'uploading'} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#7d8387] hover:text-[#557500]">{selectedFeeling ? <><span className="text-xl">{selectedFeeling.emoji}</span> Feeling {selectedFeeling.label}<XCircle className="ml-1 h-4 w-4" onClick={(event) => { event.stopPropagation(); setSelectedFeeling(null) }} /></> : <><Smile className="h-4 w-4" /> How are you feeling?</>}</button>
+          {showFeelingPicker && <div className="mb-4 flex flex-wrap gap-2 rounded-2xl border border-[#e2e5df] bg-white p-3">{FEELINGS.map((feeling) => <button type="button" key={feeling.label} onClick={() => { setSelectedFeeling(feeling); setShowFeelingPicker(false) }} className={`rounded-full px-3 py-2 text-sm font-semibold ${selectedFeeling?.label === feeling.label ? 'bg-[#14181c] text-white' : 'bg-[#f1f3ee] text-[#687074]'}`}>{feeling.emoji} {feeling.label}</button>)}</div>}
+
+          <textarea ref={textareaRef} value={content} onChange={(event) => setContent(event.target.value.slice(0, 1000))} placeholder="What's on your mind?" rows={4} autoFocus className="min-h-[120px] w-full resize-none rounded-2xl border-0 bg-transparent text-base outline-none placeholder:text-[#a1a7a8] focus:ring-0" disabled={postStatus === 'uploading'} />
+
+          {mediaCount > 0 && <div className={`mt-4 grid gap-2 ${video ? 'grid-cols-1' : images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>{video ? <div className="relative overflow-hidden rounded-2xl bg-[#14181c]"><video src={video.preview} controls className="max-h-80 w-full object-contain" /><button type="button" onClick={removeVideo} className="absolute right-2 top-2 rounded-full bg-[#14181c]/80 p-2 text-white"><Trash2 className="h-4 w-4" /></button></div> : images.map((item, index) => <div key={item.preview} className="group relative min-h-[150px] overflow-hidden rounded-2xl bg-[#e3e6df]"><img src={item.preview} alt={`Selected image ${index + 1}`} className="h-full min-h-[150px] w-full object-cover" /><div className="absolute left-2 top-2 rounded-full bg-[#14181c]/75 px-2 py-1 text-[10px] font-bold text-white">{index + 1}</div><button type="button" onClick={() => removeImage(index)} className="absolute right-2 top-2 rounded-full bg-[#14181c]/80 p-2 text-white opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100"><Trash2 className="h-4 w-4" /></button></div>)}</div>}
+          {images.length > 1 && <p className="mt-2 text-xs font-semibold text-[#7d8387]">{images.length} images selected · drag-and-drop ordering can be added when needed</p>}
         </div>
 
-        {/* Body */}
-        <div className="p-4 max-h-[60vh] overflow-y-auto">
-          {/* Status Banner */}
-          {postStatus !== 'idle' && (
-            <div className={`mb-4 p-3 rounded-xl flex items-center gap-3 ${
-              postStatus === 'uploading' ? 'bg-blue-50 text-blue-600' :
-              postStatus === 'success' ? 'bg-green-50 text-green-600' :
-              'bg-red-50 text-red-600'
-            }`}>
-              {postStatus === 'uploading' && <Loader2 className="h-4 w-4 animate-spin" />}
-              {postStatus === 'success' && <CheckCircle className="h-4 w-4" />}
-              {postStatus === 'error' && <XCircle className="h-4 w-4" />}
-              <span className="text-sm">{statusMessage}</span>
-            </div>
-          )}
-
-          {/* Upload Progress Bar */}
-          {postStatus === 'uploading' && uploadProgress > 0 && (
-            <div className="mb-4">
-              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-orange-500 to-purple-600 transition-all duration-300 rounded-full"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1 text-center">
-                {uploadProgress < 30 ? 'Preparing...' : 
-                 uploadProgress < 70 ? 'Uploading media...' : 
-                 uploadProgress < 100 ? 'Creating post...' : 'Almost done!'}
-              </p>
-            </div>
-          )}
-
-          {/* Feeling Picker */}
-          <div className="mb-4">
-            <button
-              onClick={() => setShowFeelingPicker(!showFeelingPicker)}
-              className="flex items-center gap-2 text-sm text-gray-500 hover:text-orange-500 transition"
-              disabled={postStatus === 'uploading'}
-            >
-              {selectedFeeling ? (
-                <>
-                  <span className="text-xl">{selectedFeeling.emoji}</span>
-                  <span>Feeling {selectedFeeling.label}</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setSelectedFeeling(null)
-                    }}
-                    className="ml-1 hover:text-red-500"
-                  >
-                    <XCircle className="h-3 w-3" />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Smile className="h-4 w-4" />
-                  <span>How are you feeling?</span>
-                </>
-              )}
-            </button>
-
-            {showFeelingPicker && (
-              <div className="mt-2 p-2 bg-gray-50 rounded-xl border border-gray-100">
-                <div className="flex flex-wrap gap-2">
-                  {FEELINGS.map((feeling) => (
-                    <button
-                      key={feeling.label}
-                      onClick={() => {
-                        setSelectedFeeling(feeling)
-                        setShowFeelingPicker(false)
-                      }}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition ${
-                        selectedFeeling?.label === feeling.label
-                          ? 'bg-orange-100 text-orange-600'
-                          : 'hover:bg-gray-200 text-gray-600'
-                      }`}
-                    >
-                      <span className="text-lg">{feeling.emoji}</span>
-                      <span>{feeling.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Textarea */}
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="What's on your mind?"
-            className="w-full resize-none border-0 focus:ring-0 text-gray-700 placeholder:text-gray-400 text-base outline-none min-h-[100px] bg-transparent"
-            rows={4}
-            autoFocus
-            disabled={postStatus === 'uploading'}
-          />
-
-          {/* Media Preview */}
-          {mediaPreview && (
-            <div className="relative mt-3 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
-              {mediaType === 'image' ? (
-                <img src={mediaPreview} alt="Preview" className="w-full max-h-64 object-contain" />
-              ) : (
-                <video src={mediaPreview} className="w-full max-h-64 object-contain" controls />
-              )}
-              {postStatus !== 'uploading' && (
-                <button
-                  onClick={removeMedia}
-                  className="absolute top-2 right-2 p-1.5 bg-black/60 rounded-full text-white hover:bg-black/80 transition"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-gray-100 bg-gray-50/30">
-          {/* Media Actions */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex gap-2">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-2 rounded-full hover:bg-gray-200 text-gray-500 transition"
-                title="Add image"
-                disabled={postStatus === 'uploading'}
-              >
-                <ImageIcon className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => videoInputRef.current?.click()}
-                className="p-2 rounded-full hover:bg-gray-200 text-gray-500 transition"
-                title="Add video"
-                disabled={postStatus === 'uploading'}
-              >
-                <Video className="h-5 w-5" />
-              </button>
-              <button
-                className="p-2 rounded-full hover:bg-gray-200 text-gray-500 transition"
-                title="Add location"
-                disabled={postStatus === 'uploading'}
-              >
-                <MapPin className="h-5 w-5" />
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => handleMediaSelect(e, 'image')}
-              />
-              <input
-                ref={videoInputRef}
-                type="file"
-                accept="video/*"
-                className="hidden"
-                onChange={(e) => handleMediaSelect(e, 'video')}
-              />
-            </div>
-            
-            {/* Character count */}
-            <div className="text-xs text-gray-400">
-              {content.length}/1000
-            </div>
-          </div>
-
-          {/* Post Button */}
-          <button
-            onClick={handleSubmit}
-            disabled={(!content.trim() && !mediaFile) || postStatus === 'uploading'}
-            className={`w-full py-2.5 rounded-full font-semibold transition-all duration-200 active:scale-98 flex items-center justify-center gap-2 ${
-              postStatus === 'uploading'
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-orange-500 to-purple-600 text-white hover:shadow-lg'
-            }`}
-          >
-            {postStatus === 'uploading' ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Posting...
-              </>
-            ) : postStatus === 'success' ? (
-              <>
-                <CheckCircle className="h-4 w-4" />
-                Posted!
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4" />
-                Post to Feed
-              </>
-            )}
-          </button>
-        </div>
+        <footer className="border-t border-[#e2e5df] bg-white/80 px-5 py-4">
+          <div className="mb-3 flex items-center justify-between"><div className="flex items-center gap-1"><button type="button" onClick={() => imageInputRef.current?.click()} disabled={postStatus === 'uploading' || images.length >= MAX_IMAGES || !!video} className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-bold text-[#557500] transition hover:bg-[#eef8d6] disabled:opacity-40"><ImageIcon className="h-4 w-4" /> Images {images.length ? `(${images.length}/${MAX_IMAGES})` : ''}</button><button type="button" onClick={() => videoInputRef.current?.click()} disabled={postStatus === 'uploading' || images.length > 0 || !!video} className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-bold text-[#687074] transition hover:bg-[#f1f3ee] disabled:opacity-40"><Video className="h-4 w-4" /> Video</button><button type="button" disabled className="hidden rounded-full p-2 text-[#a1a7a8] sm:block" title="Location coming soon"><MapPin className="h-4 w-4" /></button><input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImagesSelect} /><input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoSelect} /></div><span className="text-xs font-semibold text-[#9aa0a1]">{content.length}/1000</span></div>
+          <button type="button" onClick={handleSubmit} disabled={(!content.trim() && !mediaCount) || postStatus === 'uploading'} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#14181c] py-3 text-sm font-extrabold text-white transition hover:bg-[#b7f23a] hover:text-[#14181c] disabled:cursor-not-allowed disabled:bg-[#dfe3dc] disabled:text-[#8a9092]">{postStatus === 'uploading' ? <><Loader2 className="h-4 w-4 animate-spin" /> Posting...</> : postStatus === 'success' ? <><CheckCircle className="h-4 w-4" /> Posted</> : <><Send className="h-4 w-4" /> Post to Feed</>}</button>
+        </footer>
       </div>
-
-      <style jsx global>{`
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes scale-in {
-          from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
-          to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-        }
-        @keyframes slide-down {
-          from { opacity: 0; transform: translate(-50%, -20px); }
-          to { opacity: 1; transform: translate(-50%, 0); }
-        }
-        .animate-fade-in { animation: fade-in 0.2s ease-out; }
-        .animate-scale-in { animation: scale-in 0.2s ease-out; }
-        .animate-slide-down { animation: slide-down 0.3s ease-out; }
-      `}</style>
     </>
-  )
-}
+  )}
