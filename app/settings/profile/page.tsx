@@ -1,287 +1,222 @@
-// app/settings/profile/page.tsx - Updated version
-
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, Camera, Loader2, Save, User, Image as ImageIcon, Trash2, Check } from 'lucide-react'
+import { ArrowLeft, Camera, Check, Image as ImageIcon, Loader2, Save, User, X } from 'lucide-react'
+
+type UploadField = 'avatar' | 'cover' | null
+type Notice = { type: 'error' | 'success' | 'info'; message: string } | null
+
+type FormErrors = {
+  displayName?: string
+  username?: string
+  bio?: string
+}
+
+const USERNAME_PATTERN = /^[a-z0-9_]+$/
+const MAX_BIO_LENGTH = 150
 
 export default function SettingsProfilePage() {
+  const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const coverInputRef = useRef<HTMLInputElement>(null)
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [profile, setProfile] = useState<any>(null)
+  const [uploading, setUploading] = useState<UploadField>(null)
+  const [profileId, setProfileId] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState('')
   const [username, setUsername] = useState('')
+  const [originalUsername, setOriginalUsername] = useState('')
   const [bio, setBio] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
-  
-  // Only include columns that exist in your table
-  // Remove location and website if they don't exist yet
-  
-  const avatarInputRef = useRef<HTMLInputElement>(null)
-  const coverInputRef = useRef<HTMLInputElement>(null)
-  
-  const router = useRouter()
-  const supabase = createClient()
+  const [errors, setErrors] = useState<FormErrors>({})
+  const [notice, setNotice] = useState<Notice>(null)
+  const [dirty, setDirty] = useState(false)
 
   useEffect(() => {
-    loadProfile()
-  }, [])
-
-  const loadProfile = async () => {
-    try {
+    let active = true
+    const loadProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        router.push('/auth/login')
+        router.replace('/auth/login')
         return
       }
 
-      const { data: profileData } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, display_name, username, bio, avatar_url, cover_url')
         .eq('id', user.id)
         .single()
 
-      if (profileData) {
-        setProfile(profileData)
-        setDisplayName(profileData.display_name || '')
-        setUsername(profileData.username || '')
-        setBio(profileData.bio || '')
-        setAvatarUrl(profileData.avatar_url)
-        setCoverUrl(profileData.cover_url)
+      if (!active) return
+      if (error) {
+        setNotice({ type: 'error', message: 'We could not load your profile. Please try again.' })
+      } else if (data) {
+        const nextUsername = data.username || ''
+        setProfileId(data.id)
+        setDisplayName(data.display_name || '')
+        setUsername(nextUsername)
+        setOriginalUsername(nextUsername)
+        setBio(data.bio || '')
+        setAvatarUrl(data.avatar_url || null)
+        setCoverUrl(data.cover_url || null)
       }
-    } catch (error) {
-      console.error('Error loading profile:', error)
-    } finally {
       setLoading(false)
     }
+
+    loadProfile()
+    return () => { active = false }
+  }, [router, supabase])
+
+  const markDirty = () => {
+    setDirty(true)
+    if (notice?.type === 'success') setNotice(null)
   }
 
-  const uploadImage = async (file: File, type: 'avatar' | 'cover'): Promise<string | null> => {
+  const validate = (): FormErrors => {
+    const next: FormErrors = {}
+    const cleanDisplayName = displayName.trim()
+    const cleanUsername = username.trim().toLowerCase()
+
+    if (cleanDisplayName.length < 2) next.displayName = 'Use at least 2 characters.'
+    if (cleanDisplayName.length > 60) next.displayName = 'Keep your display name under 60 characters.'
+    if (cleanUsername.length < 3) next.username = 'Use at least 3 characters.'
+    else if (cleanUsername.length > 24) next.username = 'Keep your username under 24 characters.'
+    else if (!USERNAME_PATTERN.test(cleanUsername)) next.username = 'Use lowercase letters, numbers, and underscores only.'
+    if (bio.length > MAX_BIO_LENGTH) next.bio = `Keep your bio under ${MAX_BIO_LENGTH} characters.`
+
+    setErrors(next)
+    return next
+  }
+
+  const uploadImage = async (file: File, type: Exclude<UploadField, null>) => {
+    if (!profileId) return
+    if (!file.type.startsWith('image/')) {
+      setNotice({ type: 'error', message: 'Please choose an image file.' })
+      return
+    }
+    const maxBytes = type === 'avatar' ? 5 * 1024 * 1024 : 10 * 1024 * 1024
+    if (file.size > maxBytes) {
+      setNotice({ type: 'error', message: `${type === 'avatar' ? 'Profile' : 'Cover'} image must be smaller than ${type === 'avatar' ? '5MB' : '10MB'}.` })
+      return
+    }
+
+    setUploading(type)
+    setNotice({ type: 'info', message: `Uploading ${type === 'avatar' ? 'profile photo' : 'cover photo'}…` })
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('No user')
-
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${user.id}/${type}/${Date.now()}.${fileExt}`
-      
-      const { error: uploadError } = await supabase.storage
-        .from('profiles')
-        .upload(fileName, file)
-
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const path = `${profileId}/${type}/${crypto.randomUUID()}.${extension}`
+      const { error: uploadError } = await supabase.storage.from('profiles').upload(path, file, { cacheControl: '3600', upsert: false })
       if (uploadError) throw uploadError
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('profiles')
-        .getPublicUrl(fileName)
-
-      return publicUrl
+      const { data } = supabase.storage.from('profiles').getPublicUrl(path)
+      if (type === 'avatar') setAvatarUrl(data.publicUrl)
+      else setCoverUrl(data.publicUrl)
+      markDirty()
+      setNotice({ type: 'success', message: `${type === 'avatar' ? 'Profile photo' : 'Cover photo'} uploaded.` })
     } catch (error) {
       console.error(`Error uploading ${type}:`, error)
-      return null
-    }
-  }
-
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file')
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Image must be less than 5MB')
-      return
-    }
-
-    setSaving(true)
-    const publicUrl = await uploadImage(file, 'avatar')
-    if (publicUrl) {
-      setAvatarUrl(publicUrl)
-    }
-    setSaving(false)
-  }
-
-  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file')
-      return
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Cover image must be less than 10MB')
-      return
-    }
-
-    setSaving(true)
-    const publicUrl = await uploadImage(file, 'cover')
-    if (publicUrl) {
-      setCoverUrl(publicUrl)
-    }
-    setSaving(false)
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('No user')
-
-      // Only update columns that exist
-      const updateData: any = {
-        display_name: displayName,
-        username: username.toLowerCase().replace(/[^a-z0-9_]/g, ''),
-        bio: bio,
-        avatar_url: avatarUrl,
-        cover_url: coverUrl,
-        updated_at: new Date().toISOString()
-      }
-
-      // Only add location and website if columns exist
-      // You can check by trying to update or skip them for now
-
-      const { error } = await supabase
-        .from('profiles')
-        .update(updateData)
-        .eq('id', user.id)
-
-      if (error) throw error
-
-      router.push(`/profile/${username}`)
-    } catch (error) {
-      console.error('Error saving profile:', error)
-      alert('Failed to save profile')
+      setNotice({ type: 'error', message: 'Upload failed. Please try another image.' })
     } finally {
-      setSaving(false)
+      setUploading(null)
     }
+  }
+
+  const handleImageChange = (event: ChangeEvent<HTMLInputElement>, type: Exclude<UploadField, null>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (file) uploadImage(file, type)
+  }
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!profileId || saving || uploading) return
+    const validationErrors = validate()
+    if (Object.keys(validationErrors).length) {
+      setNotice({ type: 'error', message: 'Review the highlighted fields before saving.' })
+      return
+    }
+
+    const cleanUsername = username.trim().toLowerCase()
+    if (cleanUsername !== originalUsername) {
+      const { data: duplicate } = await supabase.from('profiles').select('id').eq('username', cleanUsername).neq('id', profileId).maybeSingle()
+      if (duplicate) {
+        setErrors({ username: 'That username is already in use.' })
+        setNotice({ type: 'error', message: 'Choose a different username.' })
+        return
+      }
+    }
+
+    setSaving(true)
+    setNotice({ type: 'info', message: 'Saving your profile…' })
+    const { error } = await supabase.from('profiles').update({
+      display_name: displayName.trim(),
+      username: cleanUsername,
+      bio: bio.trim(),
+      avatar_url: avatarUrl,
+      cover_url: coverUrl,
+      updated_at: new Date().toISOString(),
+    }).eq('id', profileId)
+
+    if (error) {
+      console.error('Error saving profile:', error)
+      setNotice({ type: 'error', message: error.message || 'Could not save your changes.' })
+    } else {
+      setOriginalUsername(cleanUsername)
+      setUsername(cleanUsername)
+      setDirty(false)
+      setNotice({ type: 'success', message: 'Profile updated successfully.' })
+    }
+    setSaving(false)
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-      </div>
-    )
+    return <div className="flex min-h-[100dvh] items-center justify-center bg-[#f7f8f5]"><Loader2 className="h-7 w-7 animate-spin text-[#14181c]" /></div>
   }
 
   return (
-    <div className="min-h-screen bg-black">
-      <div className="sticky top-0 z-20 bg-black/80 backdrop-blur-xl border-b border-white/10">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <button onClick={() => router.back()} className="text-white/70 hover:text-white">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h1 className="text-white font-semibold text-lg">Edit Profile</h1>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="px-4 py-1.5 bg-gradient-to-r from-orange-500 to-purple-600 rounded-full text-white text-sm font-medium flex items-center gap-1"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save
-          </button>
+    <main className="min-h-[100dvh] bg-[#f7f8f5] text-[#14181c]">
+      <header className="sticky top-0 z-20 border-b border-[#dfe3dc] bg-white/95 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4 sm:px-8">
+          <button type="button" onClick={() => router.back()} className="inline-flex items-center gap-2 text-sm font-semibold text-[#687074] transition hover:text-[#14181c]"><ArrowLeft className="h-4 w-4" /> Back</button>
+          <h1 className="text-sm font-bold tracking-tight">Edit profile</h1>
+          <button type="submit" form="profile-form" disabled={saving || !!uploading || !dirty} className="inline-flex items-center gap-2 border border-[#14181c] bg-[#14181c] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#b7f23a] hover:text-[#14181c] disabled:cursor-not-allowed disabled:border-[#dfe3dc] disabled:bg-[#dfe3dc] disabled:text-[#8a9092]">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save</button>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {/* Cover Photo */}
-        <div>
-          <label className="block text-sm font-medium text-white/80 mb-2">Cover Photo</label>
-          <div className="relative h-40 rounded-xl overflow-hidden bg-gradient-to-r from-orange-500/20 to-purple-600/20">
-            {coverUrl ? (
-              <Image src={coverUrl} alt="Cover" fill className="object-cover" unoptimized />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <ImageIcon className="h-8 w-8 text-white/30" />
-              </div>
-            )}
-            <button
-              onClick={() => coverInputRef.current?.click()}
-              disabled={saving}
-              className="absolute bottom-3 right-3 px-3 py-2 bg-black/50 rounded-full text-white text-xs font-semibold flex items-center gap-1"
-            >
-              <Camera className="h-3 w-3" />
-              Change
-            </button>
-            <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
+      <form id="profile-form" onSubmit={handleSubmit} className="mx-auto max-w-3xl px-5 pb-20 pt-7 sm:px-8">
+        {notice && <div role="status" className={`mb-6 flex items-center justify-between border-l-4 px-4 py-3 text-sm font-medium ${notice.type === 'error' ? 'border-[#b33b3b] bg-[#fff7f7] text-[#8c2e2e]' : notice.type === 'success' ? 'border-[#4d9b6b] bg-[#f1f8f3] text-[#237041]' : 'border-[#b7f23a] bg-[#f6faec] text-[#557500]'}`}><span>{notice.message}</span>{notice.type !== 'info' && <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss"><X className="h-4 w-4" /></button>}</div>}
+
+        <section className="border border-[#dfe3dc] bg-white">
+          <div className="relative h-48 border-b border-[#dfe3dc] bg-[#eef0ec] sm:h-56">
+            {coverUrl ? <Image src={coverUrl} alt="Profile cover" fill unoptimized className="object-cover" /> : <div className="flex h-full items-center justify-center text-[#a1a7a8]"><ImageIcon className="h-8 w-8" /></div>}
+            <button type="button" onClick={() => coverInputRef.current?.click()} disabled={!!uploading} className="absolute bottom-4 right-4 inline-flex items-center gap-2 border border-white/70 bg-[#14181c]/85 px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#14181c] disabled:opacity-50"><Camera className="h-3.5 w-3.5" /> {uploading === 'cover' ? 'Uploading…' : 'Change cover'}</button>
+            <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleImageChange(event, 'cover')} className="hidden" />
           </div>
-        </div>
-
-        {/* Profile Picture */}
-        <div>
-          <label className="block text-sm font-medium text-white/80 mb-2">Profile Picture</label>
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-orange-500 to-purple-600">
-                {avatarUrl ? (
-                  <Image src={avatarUrl} alt="Avatar" width={80} height={80} className="w-full h-full object-cover" unoptimized />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <User className="h-8 w-8 text-white/50" />
-                  </div>
-                )}
+          <div className="border-b border-[#dfe3dc] px-5 pb-6 sm:px-7">
+            <div className="-mt-12 flex items-end justify-between gap-4">
+              <div className="relative h-24 w-24 overflow-hidden border-4 border-white bg-[#eef0ec]">
+                {avatarUrl ? <Image src={avatarUrl} alt="Profile" fill unoptimized className="object-cover" /> : <div className="flex h-full items-center justify-center"><User className="h-9 w-9 text-[#a1a7a8]" /></div>}
+                <button type="button" onClick={() => avatarInputRef.current?.click()} disabled={!!uploading} aria-label="Change profile photo" className="absolute bottom-0 right-0 bg-[#14181c] p-2 text-white transition hover:bg-[#b7f23a] hover:text-[#14181c]"><Camera className="h-3.5 w-3.5" /></button>
+                <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleImageChange(event, 'avatar')} className="hidden" />
               </div>
-              <button
-                onClick={() => avatarInputRef.current?.click()}
-                disabled={saving}
-                className="absolute -bottom-1 -right-1 p-1.5 bg-orange-500 rounded-full"
-              >
-                <Camera className="h-3 w-3 text-white" />
-              </button>
-              <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+              <p className="pb-1 text-right text-xs text-[#8a9092]">JPG, PNG, or WebP<br />Max 5MB avatar · 10MB cover</p>
             </div>
-            <p className="text-xs text-gray-500">Recommended: Square image, max 5MB</p>
-          </div>
-        </div>
-
-        {/* Form Fields */}
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-white/80 mb-1">Display Name</label>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-orange-500"
-              placeholder="Your display name"
-            />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-white/80 mb-1">Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-orange-500"
-              placeholder="username"
-            />
+          <div className="space-y-6 px-5 py-7 sm:px-7">
+            <div><label htmlFor="display-name" className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-[#687074]">Display name</label><input id="display-name" value={displayName} onChange={(event) => { setDisplayName(event.target.value); markDirty() }} maxLength={60} className={`w-full border bg-white px-3 py-3 text-sm outline-none transition focus:border-[#14181c] ${errors.displayName ? 'border-[#b33b3b]' : 'border-[#dfe3dc]'}`} placeholder="Your name" />{errors.displayName && <p className="mt-1.5 text-xs text-[#b33b3b]">{errors.displayName}</p>}</div>
+            <div><label htmlFor="username" className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-[#687074]">Username</label><div className="flex border border-[#dfe3dc] focus-within:border-[#14181c]"><span className="border-r border-[#dfe3dc] px-3 py-3 text-sm text-[#8a9092]">@</span><input id="username" value={username} onChange={(event) => { setUsername(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')); markDirty() }} maxLength={24} className="min-w-0 flex-1 px-3 py-3 text-sm outline-none" placeholder="username" /></div>{errors.username ? <p className="mt-1.5 text-xs text-[#b33b3b]">{errors.username}</p> : <p className="mt-1.5 text-xs text-[#8a9092]">Lowercase letters, numbers, and underscores only.</p>}</div>
+            <div><div className="mb-2 flex items-center justify-between"><label htmlFor="bio" className="text-xs font-bold uppercase tracking-[0.16em] text-[#687074]">Bio</label><span className={`text-xs ${bio.length > MAX_BIO_LENGTH ? 'text-[#b33b3b]' : 'text-[#8a9092]'}`}>{bio.length}/{MAX_BIO_LENGTH}</span></div><textarea id="bio" value={bio} onChange={(event) => { setBio(event.target.value); markDirty() }} maxLength={MAX_BIO_LENGTH} rows={4} className={`w-full resize-none border bg-white px-3 py-3 text-sm leading-relaxed outline-none transition focus:border-[#14181c] ${errors.bio ? 'border-[#b33b3b]' : 'border-[#dfe3dc]'}`} placeholder="Tell people what you create, care about, or explore." />{errors.bio && <p className="mt-1.5 text-xs text-[#b33b3b]">{errors.bio}</p>}</div>
           </div>
+        </section>
 
-          <div>
-            <label className="block text-sm font-medium text-white/80 mb-1">Bio</label>
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-orange-500 resize-none"
-              placeholder="Tell us about yourself"
-              rows={3}
-              maxLength={150}
-            />
-            <p className="text-xs text-gray-500 text-right mt-1">{bio.length}/150</p>
-          </div>
-        </div>
-      </div>
-    </div>
+        <div className="mt-5 flex items-center gap-2 text-xs text-[#8a9092]"><Check className="h-3.5 w-3.5 text-[#779f00]" /> Your profile changes are saved securely to your account.</div>
+      </form>
+    </main>
   )
 }
