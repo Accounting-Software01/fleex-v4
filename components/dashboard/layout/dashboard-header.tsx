@@ -101,7 +101,7 @@ export default function DashboardHeader() {
             <div className="hidden max-w-md flex-1 lg:ml-12 lg:block"><div className="relative w-full"><div className="pointer-events-none absolute inset-y-0 left-3 flex items-center"><Search className={`h-4 w-4 ${searchFocused ? 'text-black' : 'text-gray-400'}`} /></div><input type="text" placeholder="Search" onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} className="h-10 w-full border border-transparent bg-gray-100 pl-10 pr-4 text-sm outline-none transition hover:bg-gray-200 focus:border-black focus:bg-white placeholder:text-gray-500" /></div></div>
 
             <Link href="/dashboard" aria-label="Pull home" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-              <span className="text-xl font-black tracking-[-0.05em] text-black">Pull<span className="text-[#b7f23a]">.</span></span>
+              <span className="text-xl font-black tracking-[-0.05em] text-black">pull<span className="text-[#b7f23a]">.</span></span>
             </Link>
 
             <div className="flex items-center gap-3">
@@ -114,7 +114,7 @@ export default function DashboardHeader() {
 
       {showDrawer && <div className="fixed inset-0 z-50 bg-black/45" onClick={() => setShowDrawer(false)} />}
       <div ref={drawerRef} className={`fixed left-0 top-0 z-[60] flex h-[100dvh] max-h-[100dvh] w-[82vw] max-w-[340px] flex-col overflow-hidden border-r border-[#dfe3dc] bg-white shadow-2xl transition-transform duration-300 ease-out ${showDrawer ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex items-center justify-between border-b border-[#e5e8e2] px-4 py-3"><Link href="/dashboard" onClick={() => setShowDrawer(false)} className="text-xl font-black tracking-[-0.05em] text-black">Pull<span className="text-[#b7f23a]">.</span></Link><button type="button" onClick={() => setShowDrawer(false)} aria-label="Close menu" className="p-2 text-black hover:bg-[#f3f5f1]"><X className="h-5 w-5" /></button></div>
+        <div className="flex items-center justify-between border-b border-[#e5e8e2] px-4 py-3"><Link href="/dashboard" onClick={() => setShowDrawer(false)} className="text-xl font-black tracking-[-0.05em] text-black">pull<span className="text-[#b7f23a]">.</span></Link><button type="button" onClick={() => setShowDrawer(false)} aria-label="Close menu" className="p-2 text-black hover:bg-[#f3f5f1]"><X className="h-5 w-5" /></button></div>
 
         {profile && <div className="border-b border-[#e5e8e2] px-4 py-3"><div className="flex items-center gap-2.5"><div className="h-10 w-10 shrink-0 overflow-hidden bg-black">{profile.avatar_url ? <Image src={profile.avatar_url} alt="avatar" width={40} height={40} className="h-full w-full object-cover" unoptimized /> : <div className="flex h-full w-full items-center justify-center text-sm font-bold text-white">{profile.display_name?.[0]?.toUpperCase() || profile.email?.[0]?.toUpperCase() || 'U'}</div>}</div><div className="min-w-0"><p className="truncate text-sm font-bold text-black">{profile.display_name || profile.email?.split('@')[0] || 'User'}</p><p className="truncate text-[11px] text-gray-500">@{profile.username || 'username'}</p></div></div></div>}
 
