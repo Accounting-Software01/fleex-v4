@@ -2,104 +2,126 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Search, Bell, Plus, Menu, X, User, CreditCard, Settings, LogOut, HelpCircle, Shield, Sparkles, Flame } from 'lucide-react'
+import {
+  Search,
+  Bell,
+  Plus,
+  X,
+  User,
+  CreditCard,
+  Settings,
+  LogOut,
+  HelpCircle,
+  Shield,
+  Sparkles,
+  Flame,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function TopHeader() {
   const pathname = usePathname()
   const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
-  const supabase = createClient()
 
-  // Hide on auth pages and onboarding
-  if (pathname?.startsWith('/auth/') || pathname?.startsWith('/onboarding') || pathname === '/') {
-    return null
-  }
-
+  // Hooks must run before the conditional route return on every render.
   useEffect(() => {
+    let cancelled = false
+
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser()
+
+      if (!cancelled) setUser(currentUser)
     }
-    getUser()
+
+    getUser().catch((error) => {
+      console.error('Unable to load header user:', error)
+    })
+
+    return () => {
+      cancelled = true
+    }
   }, [supabase])
 
-  // Prevent body scroll when drawer is open
   useEffect(() => {
-    if (isDrawerOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
+    document.body.style.overflow = isDrawerOpen ? 'hidden' : 'unset'
+
     return () => {
       document.body.style.overflow = 'unset'
     }
   }, [isDrawerOpen])
 
+  // Hide on auth pages and onboarding.
+  if (pathname?.startsWith('/auth/') || pathname?.startsWith('/onboarding') || pathname === '/') {
+    return null
+  }
+
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    router.push('/')
     setIsDrawerOpen(false)
+    router.push('/')
   }
 
   const menuItems = [
-    { icon: User, label: 'Profile', href: '/dashboard/profile', color: 'text-orange-500' },
-    { icon: CreditCard, label: 'Subscription', href: '/dashboard/subscription', color: 'text-pink-500' },
-    { icon: Settings, label: 'Settings', href: '/dashboard/settings', color: 'text-purple-600' },
-    { icon: Flame, label: 'Fleex Studio', href: '/create-fleex', color: 'text-orange-500' },
-    { icon: Sparkles, label: 'Premium Features', href: '/dashboard/premium', color: 'text-amber-500' },
-    { icon: HelpCircle, label: 'Help & Support', href: '/dashboard/support', color: 'text-orange-500' },
-    { icon: Shield, label: 'Privacy', href: '/dashboard/privacy', color: 'text-purple-500' },
+    { icon: User, label: 'Profile', href: '/dashboard/profile' },
+    { icon: CreditCard, label: 'Subscription', href: '/dashboard/subscription' },
+    { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
+    { icon: Flame, label: 'Pull Studio', href: '/create-fleex' },
+    { icon: Sparkles, label: 'Premium Features', href: '/dashboard/premium' },
+    { icon: HelpCircle, label: 'Help & Support', href: '/dashboard/support' },
+    { icon: Shield, label: 'Privacy', href: '/dashboard/privacy' },
   ]
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/10 shadow-lg">
-        <div className="max-w-full mx-auto px-4 py-3 flex items-center justify-between">
-          {/* Left - Hamburger Menu only */}
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-black/80 shadow-lg backdrop-blur-xl">
+        <div className="relative mx-auto flex max-w-full items-center justify-between px-4 py-3">
+          {/* Left: menu */}
           <button
+            type="button"
             onClick={() => setIsDrawerOpen(true)}
-            className="flex flex-col gap-1.5 p-2 -ml-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-all duration-200"
+            className="-ml-2 flex flex-col gap-1.5 rounded-lg p-2 transition-all duration-200 hover:bg-white/10 active:bg-white/20"
             aria-label="Open menu"
           >
-            <div className="w-5 h-0.5 bg-gradient-to-r from-orange-500 to-purple-600 rounded-full transform transition-all" />
-            <div className="w-5 h-0.5 bg-gradient-to-r from-orange-500 to-purple-600 rounded-full transform transition-all" />
-            <div className="w-5 h-0.5 bg-gradient-to-r from-orange-500 to-purple-600 rounded-full transform transition-all" />
+            <span className="h-0.5 w-5 rounded-full bg-[#b7f23a]" />
+            <span className="h-0.5 w-5 rounded-full bg-[#b7f23a]" />
+            <span className="h-0.5 w-5 rounded-full bg-[#b7f23a]" />
           </button>
 
-          {/* Logo - Center on mobile, left on desktop */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 lg:relative lg:left-0 lg:transform-none lg:ml-2">
-            <Link href="/dashboard">
-              <div className="flex items-center gap-1">
-                <span className="text-white font-black text-xl">Fleex</span>
-                <span className="text-orange-500 font-black text-xl">.</span>
-              </div>
+          {/* Center: Pull. mark */}
+          <div className="absolute left-1/2 -translate-x-1/2 lg:relative lg:left-0 lg:ml-2 lg:translate-x-0">
+            <Link href="/dashboard" aria-label="Pull home">
+              <span className="text-xl font-black tracking-[-0.04em] text-white">
+                Pull<span className="text-[#b7f23a]" aria-hidden="true">.</span>
+              </span>
             </Link>
           </div>
 
-          {/* Center - Search (Desktop only) */}
-          <div className="hidden lg:block flex-1 max-w-md mx-4">
+          {/* Center desktop: search */}
+          <div className="mx-4 hidden max-w-md flex-1 lg:block">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-orange-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#b7f23a]" aria-hidden="true" />
               <input
-                type="text"
-                placeholder="Search fleex, creators..."
-                className="w-full pl-10 pr-4 py-2 text-sm bg-white/5 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-black/50 transition text-white placeholder:text-white/30"
+                type="search"
+                placeholder="Search Pull, creators..."
+                className="w-full rounded-full bg-white/5 py-2 pl-10 pr-4 text-sm text-white transition placeholder:text-white/30 focus:bg-black/50 focus:outline-none focus:ring-2 focus:ring-[#b7f23a]"
               />
             </div>
           </div>
 
-          {/* Right - Actions */}
+          {/* Right: actions */}
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="h-9 w-9 p-0 rounded-full hover:bg-white/10">
-              <Bell className="h-5 w-5 text-orange-400" />
+            <Button variant="ghost" size="sm" className="h-9 w-9 rounded-full p-0 hover:bg-white/10" aria-label="Notifications">
+              <Bell className="h-5 w-5 text-[#b7f23a]" aria-hidden="true" />
             </Button>
             <Link href="/create-fleex">
-              <Button size="sm" className="gap-2 bg-gradient-to-r from-orange-500 to-purple-600 hover:from-orange-600 hover:to-purple-700 text-white shadow-lg shadow-orange-500/20">
-                <Plus className="h-4 w-4" />
+              <Button size="sm" className="gap-2 bg-[#b7f23a] text-black shadow-lg shadow-[#b7f23a]/20 hover:bg-[#c9ff62]">
+                <Plus className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Create</span>
               </Button>
             </Link>
@@ -107,104 +129,99 @@ export default function TopHeader() {
         </div>
       </header>
 
-      {/* Mobile Search Bar - Below header on mobile */}
-      <div className="lg:hidden sticky top-[57px] z-30 bg-black/80 backdrop-blur-xl border-b border-white/10 px-4 py-2">
+      {/* Mobile search */}
+      <div className="sticky top-[57px] z-30 border-b border-white/10 bg-black/80 px-4 py-2 backdrop-blur-xl lg:hidden">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-orange-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#b7f23a]" aria-hidden="true" />
           <input
-            type="text"
-            placeholder="Search fleex, creators..."
-            className="w-full pl-10 pr-4 py-2 text-sm bg-white/5 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-black/50 transition text-white placeholder:text-white/30"
+            type="search"
+            placeholder="Search Pull, creators..."
+            className="w-full rounded-full bg-white/5 py-2 pl-10 pr-4 text-sm text-white transition placeholder:text-white/30 focus:bg-black/50 focus:outline-none focus:ring-2 focus:ring-[#b7f23a]"
           />
         </div>
       </div>
 
-      {/* Drawer Overlay */}
+      {/* Drawer overlay */}
       {isDrawerOpen && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md transition-opacity duration-300"
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md"
           onClick={() => setIsDrawerOpen(false)}
+          aria-hidden="true"
         />
       )}
 
       {/* Drawer */}
-      <div 
-        className={`fixed top-0 left-0 z-50 h-full w-full max-w-sm bg-gradient-to-b from-gray-900 to-black shadow-2xl transform transition-transform duration-300 ease-out ${
+      <aside
+        aria-label="Main menu"
+        className={`fixed left-0 top-0 z-50 flex h-full w-full max-w-sm flex-col bg-gradient-to-b from-gray-900 to-black shadow-2xl transition-transform duration-300 ease-out ${
           isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Drawer Header with Fleex branding */}
-        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-gradient-to-r from-orange-500/10 to-purple-600/10">
+        <div className="flex items-center justify-between border-b border-white/10 bg-[#b7f23a]/10 p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-purple-600 flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-xl">F</span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#b7f23a] shadow-lg">
+              <span className="text-xl font-black text-black">P</span>
             </div>
             <div>
-              <h2 className="font-bold text-white text-lg">
-                Fleex
-              </h2>
-              <p className="text-xs text-white/50">create, share & discover</p>
+              <h2 className="text-lg font-bold text-white">Pull<span className="text-[#b7f23a]">.</span></h2>
+              <p className="text-xs text-white/50">create, share &amp; discover</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={() => setIsDrawerOpen(false)}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            className="rounded-lg p-2 transition-colors hover:bg-white/10"
             aria-label="Close menu"
           >
-            <X className="h-5 w-5 text-white/70" />
+            <X className="h-5 w-5 text-white/70" aria-hidden="true" />
           </button>
         </div>
 
-        {/* User Info */}
         {user && (
-          <div className="p-4 border-b border-white/10 bg-gradient-to-r from-orange-500/5 to-purple-600/5">
+          <div className="border-b border-white/10 bg-[#b7f23a]/5 p-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-purple-600 flex items-center justify-center text-white font-semibold text-lg shadow-lg">
-                {user.email?.[0].toUpperCase() || 'U'}
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#b7f23a] text-lg font-semibold text-black">
+                {user.email?.[0]?.toUpperCase() || 'U'}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-white truncate">
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold text-white">
                   {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
                 </p>
-                <p className="text-xs text-white/50 truncate">{user.email}</p>
+                <p className="truncate text-xs text-white/50">{user.email}</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Menu Items */}
         <nav className="flex-1 overflow-y-auto py-2">
-          {menuItems.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={() => setIsDrawerOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors group"
-            >
-              <div className={`${item.color} group-hover:scale-110 transition-transform`}>
-                <item.icon className="h-5 w-5" />
-              </div>
-              <span className="text-white/80 group-hover:text-white font-medium">
-                {item.label}
-              </span>
-            </Link>
-          ))}
+          {menuItems.map((item) => {
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                onClick={() => setIsDrawerOpen(false)}
+                className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5"
+              >
+                <Icon className="h-5 w-5 text-[#b7f23a] transition-transform group-hover:scale-110" aria-hidden="true" />
+                <span className="font-medium text-white/80 group-hover:text-white">{item.label}</span>
+              </Link>
+            )
+          })}
         </nav>
 
-        {/* Footer Actions */}
-        <div className="border-t border-white/10 p-4 space-y-2">
+        <div className="space-y-2 border-t border-white/10 p-4">
           <button
+            type="button"
             onClick={handleSignOut}
-            className="flex items-center gap-3 px-4 py-3 w-full rounded-lg hover:bg-red-500/10 transition-colors group"
+            className="group flex w-full items-center gap-3 rounded-lg px-4 py-3 transition-colors hover:bg-red-500/10"
           >
-            <LogOut className="h-5 w-5 text-red-400 group-hover:scale-110 transition-transform" />
-            <span className="text-red-400 font-medium">Sign Out</span>
+            <LogOut className="h-5 w-5 text-red-400 transition-transform group-hover:scale-110" aria-hidden="true" />
+            <span className="font-medium text-red-400">Sign Out</span>
           </button>
-          <p className="text-xs text-center text-white/30 pt-2">
-            Fleex • Create, share & discover
-          </p>
+          <p className="pt-2 text-center text-xs text-white/30">Pull. • Create, share &amp; discover</p>
         </div>
-      </div>
+      </aside>
     </>
   )
 }
