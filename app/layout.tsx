@@ -13,29 +13,29 @@ import './globals.css'
 // reaching fonts.googleapis.com — more reliable in CI/offline environments.
 
 export const metadata: Metadata = {
-  title: 'Fleex - Build Your Identity, Share Your World',
-  description: 'Fleex is where creators build a Face, forge portfolios, blogs, shops, and short videos, and get discovered through Spark.',
-  generator: 'Sagheer Muhd - Sagheer+ Lab',
+  title: 'Pull - Build Your Identity, Share Your World',
+  description: 'Pull is where creators build a Face, forge portfolios, blogs, shops, and short videos, and get discovered through Spark.',
+  generator: 'Pull Foward - Arham & Brothers Ltd',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Fleex',
+    title: 'Pull',
   },
   icons: {
     icon: [
       {
-        url: '/icon-light-32x32.png',
+        url: '/pull-icon-maskable-512.png',
         media: '(prefers-color-scheme: light)',
       },
       {
-        url: '/icon-dark-32x32.png',
+        url: '/pull-icon-maskable-512.png',
         media: '(prefers-color-scheme: dark)',
       },
-      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/pull-icon-maskable-512.png', sizes: '192x192', type: 'image/png' },
+      { url: '/pull-icon-maskable-512.png', sizes: '512x512', type: 'image/png' },
     ],
-    apple: '/apple-icon.png',
+    apple: '/pull-icon-maskable-512.png',
   },
 }
 
