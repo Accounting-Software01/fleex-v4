@@ -94,6 +94,33 @@ function SearchContent() {
   const [following, setFollowing] = useState<Set<string>>(new Set())
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [followLoading, setFollowLoading] = useState<string | null>(null)
+  const [recommendedPeople, setRecommendedPeople] = useState<PersonResult[]>([])
+
+  const loadRecommendedProfiles = async (excludeUserId?: string) => {
+    let request = supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url, bio, follower_count, forge_count, is_verified, is_official')
+      .order('follower_count', { ascending: false, nullsFirst: false })
+      .limit(8)
+
+    if (excludeUserId) request = request.neq('id', excludeUserId)
+
+    const { data, error } = await request
+    if (!error && data) {
+      setRecommendedPeople(data as PersonResult[])
+      return
+    }
+
+    // Fallback for projects whose profiles table has stricter RLS.
+    try {
+      const response = await fetch('/api/search?type=people&recommended=true&limit=8')
+      if (!response.ok) return
+      const fallback = await response.json()
+      setRecommendedPeople((fallback.people || fallback.profiles || []).filter((person: PersonResult) => person.id !== excludeUserId).slice(0, 8))
+    } catch (fallbackError) {
+      console.error('[Pull recommendations] error:', fallbackError)
+    }
+  }
 
   useEffect(() => {
     const saved = window.localStorage.getItem('recent_searches')
@@ -107,13 +134,17 @@ function SearchContent() {
 
     const loadUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        await loadRecommendedProfiles()
+        return
+      }
       setCurrentUserId(user.id)
       const { data: allies } = await supabase.from('allies').select('following_id').eq('follower_id', user.id)
       setFollowing(new Set(allies?.map((ally) => ally.following_id) || []))
+      await loadRecommendedProfiles(user.id)
     }
 
-    loadUser()
+    loadUser().catch((error) => console.error('[Pull search] user loading error:', error))
   }, [supabase])
 
   const performSearch = async (term: string, kind = activeType) => {
@@ -229,7 +260,7 @@ function SearchContent() {
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div className="min-w-0 flex-1">
-              <h1 className="text-xl font-semibold tracking-[-0.04em]">Search Fleex</h1>
+              <h1 className="text-xl font-semibold tracking-[-0.04em]">Search Pull</h1>
               <p className="text-xs text-[#7d8387]">Find people, ideas, news, and communities.</p>
             </div>
           </div>
@@ -240,8 +271,8 @@ function SearchContent() {
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search keywords across Fleex..."
-              aria-label="Search keywords across Fleex"
+              placeholder="Search keywords across Pull..."
+              aria-label="Search keywords across Pull"
               autoFocus
               className="w-full rounded-2xl border border-[#d9d9d4] bg-[#fbfaf6] py-3.5 pl-12 pr-24 text-base outline-none transition focus:border-[#1f2326] focus:bg-white"
             />
@@ -265,7 +296,16 @@ function SearchContent() {
         ) : query.trim() ? (
           <EmptySearch query={query} onSuggestion={runSuggestedSearch} />
         ) : (
-          <DiscoverState recentSearches={recentSearches} onSearch={runSuggestedSearch} onClearRecent={clearRecent} />
+          <DiscoverState
+            recentSearches={recentSearches}
+            recommendedPeople={recommendedPeople}
+            following={following}
+            currentUserId={currentUserId}
+            followLoading={followLoading}
+            onFollow={handleFollow}
+            onSearch={runSuggestedSearch}
+            onClearRecent={clearRecent}
+          />
         )}
       </main>
     </div>
@@ -285,7 +325,7 @@ function ResultsView({ results, following, currentUserId, followLoading, onFollo
 }
 
 function PersonResultCard({ person, isFollowing, isCurrentUser, isLoading, onFollow }: { person: PersonResult; isFollowing: boolean; isCurrentUser: boolean; isLoading: boolean; onFollow: () => void }) {
-  const name = person.display_name || person.username || 'Fleex member'
+  const name = person.display_name || person.username || 'Pull member'
   return <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-[#deded9] bg-[#fbfaf6] p-4 transition hover:border-[#b7f23a]"><Link href={`/profile/${person.username || person.id}`} className="shrink-0"><div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-[#1f2326] text-lg font-semibold text-[#b7f23a]">{person.avatar_url ? <Image src={person.avatar_url} alt={name} width={56} height={56} className="h-full w-full object-cover" /> : name.charAt(0).toUpperCase()}</div></Link><div className="min-w-0 flex-1"><Link href={`/profile/${person.username || person.id}`}><div className="flex items-center gap-1.5"><h3 className="truncate font-semibold hover:underline">{name}</h3>{person.is_verified && <Check className="h-4 w-4 shrink-0 rounded-full bg-[#1f2326] p-0.5 text-[#b7f23a]" />}{person.is_official && <span className="rounded-full bg-[#b7f23a] px-1.5 py-0.5 text-[9px] font-bold uppercase">Official</span>}</div><p className="truncate text-sm text-[#7d8387]">@{person.username || 'member'}</p></Link>{person.bio && <p className="mt-1 line-clamp-1 text-xs text-[#535a5e]">{person.bio}</p>}<div className="mt-2 flex items-center gap-3 text-xs text-[#7d8387]"><span>{person.follower_count || 0} allies</span><span>{person.forge_count || 0} forges</span></div></div>{isCurrentUser ? <span className="shrink-0 rounded-full border border-[#d9d9d4] px-3 py-2 text-xs font-semibold text-[#7d8387]">You</span> : <button type="button" onClick={onFollow} disabled={isLoading} className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition ${isFollowing ? 'border border-[#d9d9d4] bg-white text-[#14181c]' : 'bg-[#1f2326] text-white hover:bg-black'}`}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="inline-flex items-center gap-1">{isFollowing ? <UserCheck className="h-3.5 w-3.5" /> : <UserPlus className="h-3.5 w-3.5" />}{isFollowing ? 'Allied' : 'Ally'}</span>}</button>}</div>
 }
 
@@ -295,6 +335,17 @@ function ContentResultCard({ item, kind }: { item: ContentResult; kind: 'news' |
   const href = kind === 'news' && item.url ? item.url : item.slug ? `/${kind}/${item.slug}` : `/${kind}/${item.id}`
   const Icon = kind === 'news' ? Globe2 : kind === 'forges' ? Sparkles : kind === 'projects' ? BriefcaseBusiness : Group
   return <Link href={href} target={kind === 'news' && item.url ? '_blank' : undefined} rel={kind === 'news' && item.url ? 'noreferrer' : undefined} className="group flex min-w-0 gap-3 rounded-2xl border border-[#deded9] bg-[#fbfaf6] p-3 transition hover:-translate-y-0.5 hover:border-[#b7f23a] hover:shadow-[0_10px_22px_rgba(31,35,38,0.07)]"><div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#efefea]">{item.image_url || item.thumbnail_url ? <Image src={item.image_url || item.thumbnail_url || ''} alt="" fill className="object-cover" unoptimized /> : <div className="flex h-full items-center justify-center text-[#8aae00]"><Icon className="h-6 w-6" /></div>}</div><div className="min-w-0"><div className="mb-1 flex items-center gap-2"><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8aae00]">{kind}</span>{item.source && <span className="truncate text-xs text-[#a0a4a6]">{item.source}</span>}</div><h3 className="line-clamp-2 text-sm font-semibold leading-snug group-hover:underline">{title}</h3>{description && <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[#7d8387]">{description}</p>}<div className="mt-2 flex items-center gap-2 text-[11px] text-[#a0a4a6]">{item.members_count !== undefined && <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" />{item.members_count} members</span>}{item.created_at && <span>{new Date(item.created_at).toLocaleDateString()}</span>}</div></div></Link>
+}
+
+function RecommendedProfiles({ people, following, currentUserId, followLoading, onFollow }: { people: PersonResult[]; following: Set<string>; currentUserId: string | null; followLoading: string | null; onFollow: (id: string) => void }) {
+  if (!people.length) return null
+  return <section>
+    <div className="mb-4 flex items-center justify-between">
+      <div><h2 className="text-sm font-bold uppercase tracking-[0.12em]">Recommended profiles</h2><p className="mt-1 text-sm text-[#7d8387]">People worth discovering on Pull.</p></div>
+      <Users className="h-5 w-5 text-[#8aae00]" />
+    </div>
+    <div className="space-y-3">{people.map((person) => <PersonResultCard key={person.id} person={person} isFollowing={following.has(person.id)} isCurrentUser={currentUserId === person.id} isLoading={followLoading === person.id} onFollow={() => onFollow(person.id)} />)}</div>
+  </section>
 }
 
 function DiscoverState({ recentSearches, recommendedPeople, following, currentUserId, followLoading, onFollow, onSearch, onClearRecent }: { recentSearches: string[]; recommendedPeople: PersonResult[]; following: Set<string>; currentUserId: string | null; followLoading: string | null; onFollow: (id: string) => void; onSearch: (term: string) => void; onClearRecent: () => void }) {
