@@ -10,11 +10,11 @@ import { Search, Plus, X, ChevronRight, Settings, LogOut, User, Bookmark, Credit
 
 const drawerMenuItems = [
   { icon: User, label: 'Profile', href: '/profile' },
-  { icon: CreditCard, label: 'Subscription', href: '/dashboard/subscription', badge: 'Pro' },
+//  { icon: CreditCard, label: 'Subscription', href: '/dashboard/subscription', badge: 'Pro' },
   { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
-  { icon: Gem, label: 'Premium Features', href: '/dashboard/premium' },
+ // { icon: Gem, label: 'Premium Features', href: '/dashboard/premium' },
   { icon: Bookmark, label: 'Saved', href: '/dashboard/saved' },
-  { icon: WalletCards, label: 'Earnings', href: '/dashboard/earnings' },
+  //{ icon: WalletCards, label: 'Earnings', href: '/dashboard/earnings' },
   { icon: HelpCircle, label: 'Help & Support', href: '/dashboard/support' },
   { icon: Shield, label: 'Privacy & Security', href: '/dashboard/privacy' },
 ]
