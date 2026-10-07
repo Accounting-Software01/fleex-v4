@@ -6,10 +6,10 @@ import { createClient } from '@/lib/supabase/client'
 import { ArrowRight, Check, ChevronLeft, Loader2, UserRound } from 'lucide-react'
 
 const STEPS = [
-  { label: 'Date of birth', eyebrow: 'Your age helps us keep Fleex safe.' },
+  { label: 'Date of birth', eyebrow: 'Your age helps us keep Pull safe.' },
   { label: 'Phone number', eyebrow: 'Add a number for account recovery.' },
   { label: 'Username', eyebrow: 'Choose the name people will find you by.' },
-  { label: 'Display name', eyebrow: 'This is how you’ll appear across Fleex.' },
+  { label: 'Display name', eyebrow: 'This is how you’ll appear across Pull.' },
 ]
 
 const USERNAME_PATTERN = /^[a-z0-9_]+$/
@@ -105,7 +105,38 @@ export default function ProfileSetupPage() {
   return (
     <main className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#f7f8f5] text-[#14181c]">
       <div className="mx-auto flex h-full min-h-0 w-full max-w-xl flex-col overflow-hidden px-5 py-6 sm:px-8">
-        <header className="flex items-center justify-between"><button type="button" onClick={() => step > 0 && setStep((currentStep) => currentStep - 1)} className={`inline-flex items-center gap-2 text-sm font-bold ${step ? 'text-[#14181c]' : 'pointer-events-none opacity-0'}`}><ChevronLeft className="h-4 w-4" /> Back</button><div className="flex items-center gap-2 text-lg font-black tracking-[-0.07em]">fleex<span className="text-[#8dbb00]">.</span></div><span className="text-xs font-bold text-[#8a9092]">Profile setup</span></header>
+       
+        
+      <header className="flex items-center justify-between">
+  <button
+    type="button"
+    onClick={() =>
+      step > 0 && setStep((currentStep) => currentStep - 1)
+    }
+    className={`inline-flex items-center gap-2 text-sm font-bold ${
+      step
+        ? 'text-[#14181c]'
+        : 'pointer-events-none opacity-0'
+    }`}
+  >
+    <ChevronLeft className="h-4 w-4" />
+    Back
+  </button>
+
+  <div
+    className="flex items-center gap-2 text-lg font-black tracking-[-0.07em]"
+    aria-label="Pull"
+  >
+    pull<span className="text-[#8dbb00]">.</span>
+  </div>
+
+  <span className="text-xs font-bold text-[#8a9092]">
+    Profile setup
+  </span>
+</header>
+
+        
+        
         <div className="mt-8"><div className="mb-3 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em] text-[#8a9092]"><span>Step {step + 1} of {STEPS.length}</span><span className="text-[#779f00]">{Math.round(((step + 1) / STEPS.length) * 100)}%</span></div><div className="h-1.5 overflow-hidden rounded-full bg-[#dfe3dc]"><div className="h-full rounded-full bg-[#14181c] transition-all duration-300" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} /></div></div>
 
         <section className="flex min-h-0 flex-1 flex-col justify-center py-8"><div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#14181c] text-[#b7f23a]"><UserRound className="h-6 w-6" /></div><p className="mb-3 text-[10px] font-black uppercase tracking-[0.28em] text-[#779f00]">{current.eyebrow}</p><h1 className="text-4xl font-black leading-none tracking-[-0.07em] sm:text-5xl">{current.label}</h1><p className="mt-5 max-w-md text-sm leading-relaxed text-[#687074]">This takes less than a minute. You can refine the rest of your profile later in settings.</p><div className="mt-8 max-w-md">{step === 0 && <input autoFocus type="date" value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} className="w-full border-b-2 border-[#cfd5ce] bg-transparent px-0 py-4 text-xl font-semibold outline-none focus:border-[#14181c]" />}{step === 1 && <input autoFocus type="tel" inputMode="tel" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} placeholder="+234 800 000 0000" className="w-full border-b-2 border-[#cfd5ce] bg-transparent px-0 py-4 text-xl font-semibold outline-none placeholder:text-[#b0b5b2] focus:border-[#14181c]" />}{step === 2 && <div className="flex items-center border-b-2 border-[#cfd5ce] focus-within:border-[#14181c]"><span className="py-4 text-xl font-semibold text-[#8a9092]">@</span><input autoFocus value={username} onChange={(event) => setUsername(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))} maxLength={24} placeholder="username" className="min-w-0 flex-1 bg-transparent px-2 py-4 text-xl font-semibold outline-none placeholder:text-[#b0b5b2]" /></div>}{step === 3 && <input autoFocus value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={60} placeholder="Your name" className="w-full border-b-2 border-[#cfd5ce] bg-transparent px-0 py-4 text-xl font-semibold outline-none placeholder:text-[#b0b5b2] focus:border-[#14181c]" />}</div>{error && <p className="mt-3 text-sm font-semibold text-[#b33b3b]">{error}</p>}{step === 3 && <p className="mt-3 text-xs text-[#8a9092]">{displayName.length}/60 characters</p>}</section>
