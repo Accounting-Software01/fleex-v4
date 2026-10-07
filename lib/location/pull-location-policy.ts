@@ -42,6 +42,7 @@ export function getPullLocation(request: NextRequest): PullLocation {
   }
 }
 
+
 export function locationMessage(location: PullLocation) {
   if (!location.country) return 'Pull could not verify your current location.'
   return 'Pull is currently available only in Abuja/FCT, Kano, Kaduna, Zamfara, Katsina, and Sokoto, Nigeria.'
