@@ -2,18 +2,26 @@ import type { NextRequest } from 'next/server'
 
 export const ALLOWED_COUNTRY = 'NG'
 
-// Vercel's x-vercel-ip-country-region uses subdivision codes.
-// Abuja is the Federal Capital Territory, represented by FC.
-export const ALLOWED_REGIONS = new Set(['FC', 'KN', 'KD', 'ZA', 'KT', 'SO'])
+export const ALLOWED_REGIONS = new Set([
+  'FC', // Abuja / FCT
+  'KN', // Kano
+  'ZA', // Zamfara
+  'SO', // Sokoto
+  'NI', // Niger
+  'PL', // Plateau / Jos
+  'LA', // Lagos
+])
 
 export const ALLOWED_REGION_NAMES = {
   FC: 'Abuja / FCT',
   KN: 'Kano',
-  KD: 'Kaduna',
   ZA: 'Zamfara',
-  KT: 'Katsina',
   SO: 'Sokoto',
+  NI: 'Niger',
+  PL: 'Plateau / Jos',
+  LA: 'Lagos',
 } as const
+
 
 export type PullLocation = {
   country: string | null
