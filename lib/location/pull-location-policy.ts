@@ -10,6 +10,7 @@ export const ALLOWED_REGIONS = new Set([
   'NI', // Niger
   'PL', // Plateau / Jos
   'LA', // Lagos
+  'KD' // Kaduna
 ])
 
 export const ALLOWED_REGION_NAMES = {
@@ -20,6 +21,7 @@ export const ALLOWED_REGION_NAMES = {
   NI: 'Niger',
   PL: 'Plateau / Jos',
   LA: 'Lagos',
+  KD: 'Kaduna',
 } as const
 
 
