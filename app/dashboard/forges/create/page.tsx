@@ -1,9 +1,9 @@
 'use client'
-
+import { Suspense, useState } from 'react'
 import Image from 'next/image'
 import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState } from 'react'
+
 import { BlogForgeForm } from '@/components/forges/create/BlogForgeForm'
 import { CustomForgeForm } from '@/components/forges/create/CustomForgeForm'
 import { DonationForgeForm } from '@/components/forges/create/DonationForgeForm'
@@ -30,7 +30,8 @@ const templates: Array<{
   { key: 'custom', name: 'Custom', description: 'Code your own forge.', image: '/custom-3d.png', wide: true },
 ]
 
-export default function ForgeTemplateSelectionPage() {
+
+  function ForgeTemplateSelectionContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const selected = searchParams.get('template') as ForgeTemplate | null
@@ -131,5 +132,12 @@ export default function ForgeTemplateSelectionPage() {
         </div>
       </div>
     </main>
+  )
+}
+export default function ForgeTemplateSelectionPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[100dvh] bg-[#fbfcfa]" />}>
+      <ForgeTemplateSelectionContent />
+    </Suspense>
   )
 }
