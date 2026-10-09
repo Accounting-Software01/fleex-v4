@@ -543,7 +543,7 @@ export default function FleexPage() {
             <ChevronLeft className="h-6 w-6" />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold tracking-[-0.02em]">Fleex</p>
+            <p className="text-sm font-semibold tracking-[-0.02em]">Pull- Clips</p>
             <p className="truncate text-xs text-white/65">Ideas in motion</p>
           </div>
           <button
