@@ -10,8 +10,7 @@ import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FileSegmentEditor from "@/components/forges/FileSegmentEditor";
 import ContributorsPanel from "@/components/forges/ContributorsPanel";
-import JoinRequestsPanel, {
-  type ForgeJoinRequest,
+import JoinRequestsPanel, { type ForgeJoinRequest,
 } from "@/components/forges/JoinRequestsPanel";
 import ForgeComments from "@/components/forges/ForgeComments";
 import PublishForgeModal from "@/components/forges/PublishForgeModal";
