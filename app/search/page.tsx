@@ -620,7 +620,8 @@ function TopicTile({ topic, creators }: { topic: Topic; creators: TopicCreator[]
 
   return (
     <Link
-      href={`/search?q=${encodeURIComponent(topic.label)}&type=all`}
+      
+      href={`/topics/${topic.key}`}
       className="group relative block aspect-[4/5] select-none overflow-hidden rounded-3xl shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition-transform duration-150 active:scale-[0.97]"
       style={{ WebkitTapHighlightColor: "transparent" }}
     >
