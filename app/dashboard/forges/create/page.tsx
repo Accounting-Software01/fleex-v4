@@ -50,40 +50,66 @@ function ForgeTemplateSelectionContent() {
   const [submitting, setSubmitting] = useState(false)
 
   const onSubmit = async (draft: ForgeDraft) => {
-    if (!draft.name.trim()) throw new Error('A name is required')
-    if (draft.sourceMode === 'link' && !draft.sourceUrl?.trim()) throw new Error('Add the public project link')
-    if (draft.sourceMode === 'zip' && !draft.zipFile) throw new Error('Choose a ZIP file first')
-    setSubmitting(true)
-    try {
-      const response = await fetch('/api/forges', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: draft.name,
-          description: draft.description,
-          template_type: draft.template_type,
-          config: draft.config,
-          source_mode: draft.sourceMode,
-          source_url: draft.sourceUrl || null,
-          is_collaborative: false,
-          is_public_preview: false,
-        }),
-      })
-      const created = await response.json()
-      if (!response.ok) throw new Error(created.error || 'Could not create Forge')
-      if (draft.sourceMode === 'zip' && draft.zipFile) {
-        const formData = new FormData()
-        formData.append('file', draft.zipFile)
-        formData.append('forgeId', created.id)
-        const uploadResponse = await fetch('/api/forges/upload', { method: 'POST', body: formData })
-        if (!uploadResponse.ok) throw new Error('Forge created, but ZIP upload failed')
-      }
-      window.location.assign(`/dashboard/forges/${created.id}/edit`)
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'Could not create Forge')
-    } finally {
-      setSubmitting(false)
+  if (!draft.name.trim()) throw new Error('A name is required')
+  if (draft.sourceMode === 'link' && !draft.sourceUrl?.trim()) throw new Error('Add the public project link')
+  if (draft.sourceMode === 'zip' && !draft.zipFile) throw new Error('Choose a ZIP file first')
+  setSubmitting(true)
+  try {
+    const response = await fetch('/api/forges', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: draft.name,
+        description: draft.description,
+        template_type: draft.template_type,
+        config: draft.config,
+        source_mode: draft.sourceMode,
+        source_url: draft.sourceUrl || null,
+        is_collaborative: false,
+        is_public_preview: false,
+      }),
+    })
+    const created = await response.json()
+    if (!response.ok) throw new Error(created.error || 'Could not create Forge')
+
+    if (draft.sourceMode === 'zip' && draft.zipFile) {
+      const formData = new FormData()
+      formData.append('file', draft.zipFile)
+      formData.append('forgeId', created.id)
+      const uploadResponse = await fetch('/api/forges/upload', { method: 'POST', body: formData })
+      if (!uploadResponse.ok) throw new Error('Forge created, but ZIP upload failed')
     }
+
+    const failedAssets: string[] = []
+    if (draft.extraAssets?.length) {
+      for (const asset of draft.extraAssets) {
+        try {
+          const formData = new FormData()
+          formData.append('file', asset.file)
+          formData.append('forgeId', created.id)
+          formData.append('assetKey', asset.key)
+          formData.append('mime', asset.mime)
+          const assetResponse = await fetch('/api/forges/upload-asset', { method: 'POST', body: formData })
+          if (!assetResponse.ok) {
+            const err = await assetResponse.json().catch(() => ({}))
+            throw new Error(err.error || 'Upload failed')
+          }
+        } catch (err) {
+          failedAssets.push(`${asset.key}: ${err instanceof Error ? err.message : 'unknown error'}`)
+        }
+      }
+    }
+
+    if (failedAssets.length) {
+      window.alert(`Forge created, but ${failedAssets.length} file(s) failed to upload:\n${failedAssets.join('\n')}\n\nYou can retry from the edit page.`)
+    }
+
+    window.location.assign(`/dashboard/forges/${created.id}/edit`)
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : 'Could not create Forge')
+  } finally {
+    setSubmitting(false)
+  }
   }
 
   const handleContinue = () => {
