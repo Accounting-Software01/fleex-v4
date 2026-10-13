@@ -11,6 +11,7 @@ import type { ForgeDraft, ForgeFormProps } from './types'
    ========================================================================= */
 
 function useSource() {
+   
   const [mode, setMode] = useState<'link' | 'zip'>('link')
   const [url, setUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -232,46 +233,8 @@ function BookUploader({
 /* =========================================================================
    Forms
    ========================================================================= */
+export function PortfolioForgeForm(p: ForgeFormProps) { const x=useCommon('portfolio'); const [headline,setHeadline]=useState(''); const [bio,setBio]=useState(''); const [skills,setSkills]=useState(''); return <ForgeCreationShell {...p} title="Portfolio" eyebrow="pull. portfolio studio" description="Turn your work into a considered personal space that people can remember." draft={x.draft({title:x.name,subtitle:headline,bio,skills:skills.split(',').map(s=>s.trim()).filter(Boolean)})}><SubmitIntro><TextField label="Portfolio name" value={x.name} onChange={x.setName} placeholder="Your name or studio"/><TextField label="Short description" value={x.description} onChange={x.setDescription} placeholder="A one-line summary" multiline/><TextField label="Headline" value={headline} onChange={setHeadline} placeholder="Product designer · Lagos"/><TextField label="About you" value={bio} onChange={setBio} placeholder="Tell people what you make" multiline/><TextField label="Skills" value={skills} onChange={setSkills} placeholder="Design, writing, strategy"/></SubmitIntro><ForgeSourcePicker mode={x.source.mode} url={x.source.url} file={x.source.file} onModeChange={x.source.setMode} onUrlChange={x.source.setUrl} onFileChange={x.source.setFile}/></ForgeCreationShell> }
 
-export function PortfolioForgeForm(p: ForgeFormProps) {
-  const x = useCommon('portfolio')
-  const [headline, setHeadline] = useState('')
-  const [bio, setBio] = useState('')
-  const [skills, setSkills] = useState('')
-  const [available, setAvailable] = useState(true)
-  const [links, setLinks] = useState('')
-
-  return (
-    <ForgeCreationShell
-      {...p}
-      title="Portfolio"
-      eyebrow="pull. portfolio studio"
-      description="Turn your work into a considered personal space that people can remember."
-      draft={x.draft({
-        title: x.name,
-        subtitle: headline,
-        bio,
-        skills: skills.split(',').map((s) => s.trim()).filter(Boolean),
-        availableForWork: available,
-        links: links.split('\n').map((s) => s.trim()).filter(Boolean),
-      })}
-    >
-      <SubmitIntro>
-        <TextField label="Portfolio name" value={x.name} onChange={x.setName} placeholder="Your name or studio" />
-        <TextField label="Headline" value={headline} onChange={setHeadline} placeholder="Product designer · Lagos" />
-        <TextField label="About you" value={bio} onChange={setBio} placeholder="Tell people what you make" multiline />
-        <TextField label="Skills" value={skills} onChange={setSkills} placeholder="Design, writing, strategy" hint="Comma-separated" />
-      </SubmitIntro>
-
-      <FormSection title="Availability & contact" hint="Optional. Helps people reach you.">
-        <ToggleField label="Available for work" hint="Shows a badge on your portfolio" value={available} onChange={setAvailable} />
-        <TextField label="Links (one per line)" value={links} onChange={setLinks} placeholder={'https://github.com/you\nhttps://twitter.com/you'} multiline />
-      </FormSection>
-
-      <ForgeSourcePicker mode={x.source.mode} url={x.source.url} file={x.source.file} onModeChange={x.source.setMode} onUrlChange={x.source.setUrl} onFileChange={x.source.setFile} />
-    </ForgeCreationShell>
-  )
-}
 
 export function BlogForgeForm(p: ForgeFormProps) {
   const x = useCommon('blog')
@@ -317,62 +280,8 @@ export function BlogForgeForm(p: ForgeFormProps) {
   )
 }
 
-export function GalleryForgeForm(p: ForgeFormProps) {
-  const x = useCommon('gallery')
-  const [layout, setLayout] = useState('masonry')
-  const [images, setImages] = useState('')
-  const [tags, setTags] = useState('')
-  const [comments, setComments] = useState(true)
-  const [books, setBooks] = useState<Book[]>([])
 
-  return (
-    <ForgeCreationShell
-      {...p}
-      title="Gallery"
-      eyebrow="pull. visual space"
-      description="Build a calm, image-first collection — and give readers a place to read."
-      draft={{
-        ...x.draft({
-          title: x.name,
-          layout,
-          tags: tags.split(',').map((s) => s.trim()).filter(Boolean),
-          allowComments: comments,
-          images: images.split('\n').map((s) => s.trim()).filter(Boolean),
-          books: books.map((b) => ({
-            title: b.title,
-            author: b.author,
-            description: b.description,
-            coverUrl: b.coverUrl,
-          })),
-        }),
-        sourceMode: undefined,
-      }}
-    >
-      <SubmitIntro>
-        <TextField label="Gallery name" value={x.name} onChange={x.setName} placeholder="Selected works" />
-        <TextField label="Description" value={x.description} onChange={x.setDescription} placeholder="The story behind this collection" multiline />
-      </SubmitIntro>
-
-      <FormSection title="Presentation" hint="How images and reading should feel.">
-        <SelectField
-          label="Layout"
-          value={layout}
-          onChange={setLayout}
-          options={[
-            { value: 'masonry', label: 'Masonry — flowing columns' },
-            { value: 'grid', label: 'Grid — even, orderly' },
-            { value: 'featured', label: 'Featured image — one hero' },
-          ]}
-        />
-        <TextField label="Image URLs (one per line)" value={images} onChange={setImages} placeholder="https://…" multiline />
-        <TextField label="Tags" value={tags} onChange={setTags} placeholder="Photography, Kano, Heritage" hint="Comma-separated" />
-        <ToggleField label="Allow comments" value={comments} onChange={setComments} />
-      </FormSection>
-
-      <BookUploader books={books} onChange={setBooks} />
-    </ForgeCreationShell>
-  )
-}
+export function GalleryForgeForm(p: ForgeFormProps) { const x=useCommon('gallery'); const [layout,setLayout]=useState('masonry'); const [images,setImages]=useState(''); const [books,setBooks]=useState<Book[]>([]); return <ForgeCreationShell {...p} title="Gallery" eyebrow="pull. visual space" description="Build a calm, image-first collection for photographs, artwork, and visual stories." draft={{...x.draft({title:x.name,layout,images:images.split('\n').map(s=>s.trim()).filter(Boolean),books:books.map(b=>({id:b.id,title:b.title,author:b.author,description:b.description,coverUrl:b.coverUrl}))}),sourceMode:undefined,extraAssets:books.filter(b=>b.pdfFile).map(b=>({key:`book:${b.id}`,file:b.pdfFile!,mime:'application/pdf'}))}}><SubmitIntro><TextField label="Gallery name" value={x.name} onChange={x.setName} placeholder="Selected works"/><TextField label="Description" value={x.description} onChange={x.setDescription} placeholder="The story behind this collection" multiline/><label className="block"><span className="mb-1.5 block text-sm font-semibold">Layout</span><select value={layout} onChange={e=>setLayout(e.target.value)} className="w-full rounded-xl border border-gray-300 px-4 py-3"><option value="masonry">Masonry</option><option value="grid">Grid</option><option value="featured">Featured image</option></select></label><TextField label="Image URLs (one per line)" value={images} onChange={setImages} placeholder="https://…" multiline/></SubmitIntro><BookUploader books={books} onChange={setBooks}/></ForgeCreationShell> }
 
 export function ShopForgeForm(p: ForgeFormProps) {
   const x = useCommon('shop')
