@@ -5,30 +5,145 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Search, Heart, MessageCircle, Play } from "lucide-react";
 
-const TOPICS: Record<string, { label: string; emoji: string; gradient: string }> = {
-  tech: { label: "Tech", emoji: "⚡", gradient: "from-[#1e3a8a] to-[#312e81]" },
-  ai: { label: "AI", emoji: "🧠", gradient: "from-[#065f46] to-[#064e3b]" },
-  design: { label: "Design", emoji: "🎨", gradient: "from-[#d97706] to-[#be123c]" },
-  photography: { label: "Photography", emoji: "📷", gradient: "from-[#78350f] to-[#451a03]" },
-  music: { label: "Music", emoji: "🎵", gradient: "from-[#4c1d95] to-[#3b0764]" },
-  gaming: { label: "Gaming", emoji: "🎮", gradient: "from-[#0c4a6e] to-[#075985]" },
-  food: { label: "Food", emoji: "🍜", gradient: "from-[#991b1b] to-[#7f1d1d]" },
-  books: { label: "Books", emoji: "📚", gradient: "from-[#7c2d12] to-[#431407]" },
-  art: { label: "Art", emoji: "🖼", gradient: "from-[#9d174d] to-[#831843]" },
-  film: { label: "Film", emoji: "🎬", gradient: "from-[#111827] to-[#030712]" },
-  travel: { label: "Travel", emoji: "✈️", gradient: "from-[#0369a1] to-[#075985]" },
-  sports: { label: "Sports", emoji: "⚽", gradient: "from-[#15803d] to-[#14532d]" },
-  news: { label: "News", emoji: "📰", gradient: "from-[#334155] to-[#1e293b]" },
-  business: { label: "Business", emoji: "💼", gradient: "from-[#78350f] to-[#422006]" },
-  culture: { label: "Culture", emoji: "🌍", gradient: "from-[#9f1239] to-[#881337]" },
-  science: { label: "Science", emoji: "🔬", gradient: "from-[#0e7490] to-[#164e63]" },
-  health: { label: "Health", emoji: "💚", gradient: "from-[#166534] to-[#14532d]" },
-  nature: { label: "Nature", emoji: "🌿", gradient: "from-[#14532d] to-[#052e16]" },
-  fashion: { label: "Fashion", emoji: "👗", gradient: "from-[#701a75] to-[#4a044e]" },
-  heritage: { label: "Heritage", emoji: "🏛", gradient: "from-[#7c2d12] to-[#451a03]" },
+/* =========================================================================
+   Topic meta — label, emoji, gradient, description
+   ========================================================================= */
+
+type TopicMeta = {
+  label: string;
+  emoji: string;
+  gradient: string;
+  description: string;
 };
+
+const TOPICS: Record<string, TopicMeta> = {
+  tech: {
+    label: "Tech",
+    emoji: "⚡",
+    gradient: "from-[#1e3a8a] to-[#312e81]",
+    description: "Building, breaking, and rethinking tomorrow.",
+  },
+  ai: {
+    label: "AI",
+    emoji: "🧠",
+    gradient: "from-[#065f46] to-[#064e3b]",
+    description: "Exploring intelligence, ethics, and what comes next.",
+  },
+  design: {
+    label: "Design",
+    emoji: "🎨",
+    gradient: "from-[#d97706] to-[#be123c]",
+    description: "Form, function, and the craft of making things.",
+  },
+  photography: {
+    label: "Photography",
+    emoji: "📷",
+    gradient: "from-[#78350f] to-[#451a03]",
+    description: "Framing the world one shot at a time.",
+  },
+  music: {
+    label: "Music",
+    emoji: "🎵",
+    gradient: "from-[#4c1d95] to-[#3b0764]",
+    description: "Sounds, scenes, and the artists behind them.",
+  },
+  gaming: {
+    label: "Gaming",
+    emoji: "🎮",
+    gradient: "from-[#0c4a6e] to-[#075985]",
+    description: "Play, worlds, and the culture around them.",
+  },
+  food: {
+    label: "Food",
+    emoji: "🍜",
+    gradient: "from-[#991b1b] to-[#7f1d1d]",
+    description: "Recipes, restaurants, and culinary journeys.",
+  },
+  books: {
+    label: "Books",
+    emoji: "📚",
+    gradient: "from-[#7c2d12] to-[#431407]",
+    description: "Reading, writing, and the stories we tell.",
+  },
+  art: {
+    label: "Art",
+    emoji: "🖼",
+    gradient: "from-[#9d174d] to-[#831843]",
+    description: "Visual expression across styles and eras.",
+  },
+  film: {
+    label: "Film",
+    emoji: "🎬",
+    gradient: "from-[#111827] to-[#030712]",
+    description: "Cinema, storytelling, and the moving image.",
+  },
+  travel: {
+    label: "Travel",
+    emoji: "✈️",
+    gradient: "from-[#0369a1] to-[#075985]",
+    description: "Places, journeys, and the people you meet.",
+  },
+  sports: {
+    label: "Sports",
+    emoji: "⚽",
+    gradient: "from-[#15803d] to-[#14532d]",
+    description: "Athletes, teams, and the stories of the game.",
+  },
+  news: {
+    label: "News",
+    emoji: "📰",
+    gradient: "from-[#334155] to-[#1e293b]",
+    description: "What's happening now, across the world.",
+  },
+  business: {
+    label: "Business",
+    emoji: "💼",
+    gradient: "from-[#78350f] to-[#422006]",
+    description: "Ideas, founders, and how things get built.",
+  },
+  culture: {
+    label: "Culture",
+    emoji: "🌍",
+    gradient: "from-[#9f1239] to-[#881337]",
+    description: "Stories, people and ideas shaping our world.",
+  },
+  science: {
+    label: "Science",
+    emoji: "🔬",
+    gradient: "from-[#0e7490] to-[#164e63]",
+    description: "Discovery, research, and how we understand reality.",
+  },
+  health: {
+    label: "Health",
+    emoji: "💚",
+    gradient: "from-[#166534] to-[#14532d]",
+    description: "Wellness, medicine, and how we take care.",
+  },
+  nature: {
+    label: "Nature",
+    emoji: "🌿",
+    gradient: "from-[#14532d] to-[#052e16]",
+    description: "Wildlife, landscapes, and the living world.",
+  },
+  fashion: {
+    label: "Fashion",
+    emoji: "👗",
+    gradient: "from-[#701a75] to-[#4a044e]",
+    description: "Style, textiles, and what we wear.",
+  },
+  heritage: {
+    label: "Heritage",
+    emoji: "🏛",
+    gradient: "from-[#7c2d12] to-[#451a03]",
+    description: "History, tradition, and the roots we come from.",
+  },
+};
+
+/* =========================================================================
+   Signal mapping — same logic as Discover
+   ========================================================================= */
 
 const TEMPLATE_TO_TOPICS: Record<string, string[]> = {
   portfolio: ["design", "art"],
@@ -51,7 +166,12 @@ function normalizeTags(raw: unknown): string[] {
   const found = new Set<string>();
   for (const tag of raw) {
     if (typeof tag !== "string") continue;
-    const spaced = tag.replace(/^#/, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().replace(/[^a-z]+/g, " ").trim();
+    const spaced = tag
+      .replace(/^#/, "")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .toLowerCase()
+      .replace(/[^a-z]+/g, " ")
+      .trim();
     if (!spaced) continue;
     const wholeAlias = TAG_ALIASES[spaced.replace(/\s+/g, "")];
     if (wholeAlias) found.add(wholeAlias);
@@ -70,6 +190,24 @@ function normalizeTags(raw: unknown): string[] {
   return [...found];
 }
 
+/* =========================================================================
+   Tabs
+   ========================================================================= */
+
+type Tab = "foryou" | "posts" | "clips" | "creators" | "forges";
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: "foryou", label: "For you" },
+  { key: "posts", label: "Posts" },
+  { key: "clips", label: "Clips" },
+  { key: "creators", label: "Creators" },
+  { key: "forges", label: "Forges" },
+];
+
+/* =========================================================================
+   Main
+   ========================================================================= */
+
 export default function TopicPage() {
   const router = useRouter();
   const params = useParams();
@@ -77,8 +215,11 @@ export default function TopicPage() {
   const supabase = useMemo(() => createClient(), []);
   const meta = TOPICS[key];
 
+  const [tab, setTab] = useState<Tab>("foryou");
   const [forges, setForges] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
+  const [clips, setClips] = useState<any[]>([]);
+  const [creators, setCreators] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -94,36 +235,72 @@ export default function TopicPage() {
         templates.length
           ? supabase
               .from("forges")
-              .select("id, name, description, template_type, user_id, created_at, config, profiles:user_id(id, username, display_name, avatar_url)")
+              .select(
+                "id, name, description, template_type, user_id, created_at, config, profiles:user_id(id, username, display_name, avatar_url)"
+              )
               .eq("is_published", true)
               .in("template_type", templates)
               .order("created_at", { ascending: false })
-              .limit(30)
+              .limit(40)
           : Promise.resolve({ data: [] }),
 
         supabase
           .from("user_feeds")
-          .select("id, title, content, media_url, media_type, user_id, created_at, tags, profiles:user_id(id, username, display_name, avatar_url)")
+          .select(
+            "id, title, content, media_url, media_urls, media_type, user_id, created_at, tags, likes_count, comments_count, profiles:user_id(id, username, display_name, avatar_url)"
+          )
           .not("tags", "is", null)
           .order("created_at", { ascending: false })
-          .limit(100),
+          .limit(200),
       ]);
 
       if (cancelled) return;
 
-      const matchingPosts = (feedsRes.data ?? []).filter((p: any) =>
+      const allFeeds = feedsRes.data ?? [];
+      const matchingFeeds = allFeeds.filter((p: any) =>
         normalizeTags(p.tags).includes(key)
       );
 
+      // Split into videos and posts
+      const videoFeeds = matchingFeeds.filter(
+        (p: any) => p.media_type === "video"
+      );
+      const imageFeeds = matchingFeeds.filter(
+        (p: any) => p.media_type !== "video"
+      );
+
+      // Derive creators from forges + posts
+      const userIds = new Set<string>();
+      (forgesRes.data ?? []).forEach((f: any) => userIds.add(f.user_id));
+      matchingFeeds.forEach((p: any) => userIds.add(p.user_id));
+
+      let creatorProfiles: any[] = [];
+      if (userIds.size > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select(
+            "id, username, display_name, avatar_url, bio, follower_count, is_verified"
+          )
+          .in("id", [...userIds])
+          .limit(40);
+        creatorProfiles = profiles ?? [];
+      }
+
+      if (cancelled) return;
+
       setForges(forgesRes.data ?? []);
-      setPosts(matchingPosts);
+      setPosts(imageFeeds);
+      setClips(videoFeeds);
+      setCreators(creatorProfiles);
       setLoading(false);
     })().catch((e) => {
       console.error("[Topic] error:", e);
       setLoading(false);
     });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [supabase, key, meta]);
 
   if (!meta) {
@@ -131,7 +308,10 @@ export default function TopicPage() {
       <div className="flex min-h-[100dvh] items-center justify-center p-6 text-center">
         <div>
           <p className="text-[15px] font-semibold">Unknown topic</p>
-          <button onClick={() => router.back()} className="mt-4 rounded-full bg-[#14181c] px-5 py-2.5 text-[13px] font-semibold text-white">
+          <button
+            onClick={() => router.back()}
+            className="mt-4 rounded-full bg-[#14181c] px-5 py-2.5 text-[13px] font-semibold text-white"
+          >
             Go back
           </button>
         </div>
@@ -139,102 +319,457 @@ export default function TopicPage() {
     );
   }
 
-  const empty = !loading && forges.length === 0 && posts.length === 0;
+  const total = forges.length + posts.length + clips.length + creators.length;
 
   return (
     <div className="min-h-[100dvh] w-full bg-white text-[#14181c] antialiased">
+      {/* ==== Sticky header ==== */}
       <header
         className="sticky top-0 z-30 border-b border-[#ecebe5] bg-white/90 backdrop-blur-xl"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
-        <div className="mx-auto flex h-11 max-w-3xl items-center px-4">
+        <div className="relative mx-auto flex h-11 max-w-3xl items-center justify-center px-4">
           <button
             type="button"
             onClick={() => router.back()}
             aria-label="Back"
-            className="grid h-9 w-9 place-items-center rounded-full transition active:scale-95 active:bg-black/5"
+            className="absolute left-4 grid h-9 w-9 place-items-center rounded-full transition active:scale-95 active:bg-black/5"
           >
             <ArrowLeft className="h-5 w-5" strokeWidth={2.2} />
           </button>
-          <h1 className="ml-2 text-[16px] font-semibold tracking-[-0.01em]">
-            {meta.emoji} {meta.label}
+          <h1 className="text-[16px] font-semibold tracking-[-0.01em]">
+            {meta.label}
           </h1>
+          <button
+            type="button"
+            onClick={() => router.push("/search")}
+            aria-label="Search"
+            className="absolute right-4 grid h-9 w-9 place-items-center rounded-full transition active:scale-95 active:bg-black/5"
+          >
+            <Search className="h-5 w-5" strokeWidth={2.2} />
+          </button>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl px-4 pb-24 pt-4">
-        {loading ? (
-          <p className="py-12 text-center text-[13px] text-[#8b8f8a]">Loading…</p>
-        ) : empty ? (
-          <div className="py-16 text-center">
-            <div className={`mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br ${meta.gradient} text-[28px]`}>
-              {meta.emoji}
-            </div>
-            <p className="text-[15px] font-semibold">Nothing here yet</p>
-            <p className="mx-auto mt-2 max-w-[280px] text-[13px] leading-[1.5] text-[#7d8387]">
-              Be the first to publish a {meta.label} Forge or tag a post with {key}.
+      <main className="mx-auto w-full max-w-3xl pb-24">
+        {/* ==== Hero card ==== */}
+        <section className="px-4 pt-4">
+          <div className="relative overflow-hidden rounded-[28px] bg-[#14181c] px-6 py-7">
+            <p className="text-[10.5px] font-black uppercase tracking-[0.22em] text-[#b7f23a]">
+              Explore the community
             </p>
+            <h2 className="mt-3 text-[34px] font-bold leading-[1.05] tracking-[-0.03em] text-white">
+              {meta.label}
+            </h2>
+            <p className="mt-2.5 max-w-[280px] text-[14px] leading-[1.5] text-white/65">
+              {meta.description}
+            </p>
+            <span
+              aria-hidden
+              className="pointer-events-none absolute -right-4 -top-4 text-[110px] leading-none opacity-[0.06]"
+            >
+              {meta.emoji}
+            </span>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {forges.length > 0 && (
-              <section>
-                <h2 className="mb-3 text-[15px] font-semibold">Forges</h2>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {forges.map((f) => {
-                    const owner = Array.isArray(f.profiles) ? f.profiles[0] : f.profiles;
-                    const cover = f.config?.cover_image || f.config?.image_url || null;
-                    return (
-                      <Link key={f.id} href={`/preview/${f.id}`} className="flex gap-3 rounded-2xl border border-[#ecebe5] bg-white p-3 transition active:scale-[0.99]">
-                        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-[#eef5d9]">
-                          {cover ? (
-                            <Image src={cover} alt="" fill className="object-cover" unoptimized />
-                          ) : (
-                            <span className="grid h-full w-full place-items-center text-[20px]">{meta.emoji}</span>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="line-clamp-2 text-[14px] font-semibold">{f.name}</p>
-                          <p className="mt-0.5 truncate text-[12px] text-[#7d8387]">
-                            By {owner?.display_name || owner?.username || "creator"}
-                          </p>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
+        </section>
 
-            {posts.length > 0 && (
-              <section>
-                <h2 className="mb-3 text-[15px] font-semibold">Posts</h2>
-                <div className="space-y-3">
-                  {posts.map((p) => {
-                    const owner = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
-                    return (
-                      <article key={p.id} className="rounded-2xl border border-[#ecebe5] bg-white p-3.5">
-                        <p className="text-[12px] font-semibold text-[#7d8387]">
-                          {owner?.display_name || owner?.username || "creator"}
-                        </p>
-                        {p.title && <p className="mt-1 text-[14px] font-semibold">{p.title}</p>}
-                        {p.content && (
-                          <p className="mt-1 line-clamp-3 text-[13px] leading-[1.5] text-[#5c6360]">{p.content}</p>
-                        )}
-                        {p.media_url && p.media_type === "image" && (
-                          <div className="relative mt-3 aspect-video overflow-hidden rounded-xl">
-                            <Image src={p.media_url} alt="" fill className="object-cover" unoptimized />
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-          </div>
-        )}
+        {/* ==== Filter chips ==== */}
+        <div className="-mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {TABS.map((t) => {
+            const active = tab === t.key;
+            const count =
+              t.key === "forges"
+                ? forges.length
+                : t.key === "posts"
+                ? posts.length
+                : t.key === "clips"
+                ? clips.length
+                : t.key === "creators"
+                ? creators.length
+                : total;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTab(t.key)}
+                className={`shrink-0 rounded-full border px-4 py-2 text-[13.5px] font-medium transition active:scale-95 ${
+                  active
+                    ? "border-[#14181c] bg-[#14181c] text-white"
+                    : "border-[#e3e2dd] bg-white text-[#5c6360]"
+                }`}
+              >
+                {t.label}
+                {count > 0 && (
+                  <span
+                    className={`ml-1.5 text-[11.5px] ${
+                      active ? "text-white/70" : "text-[#a8aca7]"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ==== Content ==== */}
+        <div className="px-4 pt-4">
+          {loading ? (
+            <TopicSkeleton />
+          ) : (
+            <TabContent
+              tab={tab}
+              meta={meta}
+              topicKey={key}
+              forges={forges}
+              posts={posts}
+              clips={clips}
+              creators={creators}
+            />
+          )}
+        </div>
       </main>
     </div>
   );
-    }
+}
+
+/* =========================================================================
+   Tab content dispatcher
+   ========================================================================= */
+
+function TabContent({
+  tab,
+  meta,
+  topicKey,
+  forges,
+  posts,
+  clips,
+  creators,
+}: {
+  tab: Tab;
+  meta: TopicMeta;
+  topicKey: string;
+  forges: any[];
+  posts: any[];
+  clips: any[];
+  creators: any[];
+}) {
+  if (tab === "forges") {
+    return forges.length ? (
+      <div className="grid grid-cols-2 gap-3">
+        {forges.map((f) => (
+          <ForgeTile key={f.id} forge={f} meta={meta} />
+        ))}
+      </div>
+    ) : (
+      <EmptyState meta={meta} topicKey={topicKey} />
+    );
+  }
+
+  if (tab === "posts") {
+    return posts.length ? (
+      <div className="grid grid-cols-2 gap-3">
+        {posts.map((p) => (
+          <PostTile key={p.id} post={p} meta={meta} />
+        ))}
+      </div>
+    ) : (
+      <EmptyState meta={meta} topicKey={topicKey} />
+    );
+  }
+
+  if (tab === "clips") {
+    return clips.length ? (
+      <div className="grid grid-cols-2 gap-3">
+        {clips.map((c) => (
+          <ClipTile key={c.id} clip={c} meta={meta} />
+        ))}
+      </div>
+    ) : (
+      <EmptyState meta={meta} topicKey={topicKey} />
+    );
+  }
+
+  if (tab === "creators") {
+    return creators.length ? (
+      <div className="space-y-2">
+        {creators.map((c) => (
+          <CreatorRow key={c.id} person={c} />
+        ))}
+      </div>
+    ) : (
+      <EmptyState meta={meta} topicKey={topicKey} />
+    );
+  }
+
+  // "foryou" — mixed feed of everything
+  const mixed: Array<
+    | { kind: "forge"; data: any }
+    | { kind: "post"; data: any }
+    | { kind: "clip"; data: any }
+  > = [
+    ...forges.slice(0, 6).map((f) => ({ kind: "forge" as const, data: f })),
+    ...posts.slice(0, 6).map((p) => ({ kind: "post" as const, data: p })),
+    ...clips.slice(0, 6).map((c) => ({ kind: "clip" as const, data: c })),
+  ].sort((a, b) => {
+    const da = new Date(a.data.created_at || 0).getTime();
+    const db = new Date(b.data.created_at || 0).getTime();
+    return db - da;
+  });
+
+  if (mixed.length === 0) {
+    return <EmptyState meta={meta} topicKey={topicKey} />;
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {mixed.map((item) => {
+        if (item.kind === "forge") {
+          return (
+            <ForgeTile
+              key={`f-${item.data.id}`}
+              forge={item.data}
+              meta={meta}
+            />
+          );
+        }
+        if (item.kind === "post") {
+          return (
+            <PostTile
+              key={`p-${item.data.id}`}
+              post={item.data}
+              meta={meta}
+            />
+          );
+        }
+        return (
+          <ClipTile
+            key={`c-${item.data.id}`}
+            clip={item.data}
+            meta={meta}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/* =========================================================================
+   Tiles
+   ========================================================================= */
+
+function ForgeTile({ forge, meta }: { forge: any; meta: TopicMeta }) {
+  const owner = Array.isArray(forge.profiles) ? forge.profiles[0] : forge.profiles;
+  const cover =
+    forge.config?.cover_image ||
+    forge.config?.image_url ||
+    forge.config?.thumbnail_url ||
+    (Array.isArray(forge.config?.images) ? forge.config.images[0] : null);
+
+  return (
+    <Link
+      href={`/preview/${forge.id}`}
+      className="group block overflow-hidden rounded-2xl border border-[#ecebe5] bg-white transition active:scale-[0.98]"
+    >
+      <div
+        className={`relative aspect-[4/5] w-full overflow-hidden bg-gradient-to-br ${meta.gradient}`}
+      >
+        {cover ? (
+          <Image
+            src={cover}
+            alt=""
+            fill
+            className="object-cover"
+            unoptimized
+          />
+        ) : (
+          <span className="grid h-full w-full place-items-center text-[64px] opacity-30">
+            {meta.emoji}
+          </span>
+        )}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+        <span className="absolute left-2.5 top-2.5 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-white backdrop-blur">
+          Forge
+        </span>
+      </div>
+      <div className="bg-[#f4f2ec] p-3">
+        <p className="line-clamp-2 text-[14px] font-semibold leading-[1.25] text-[#14181c]">
+          {forge.name}
+        </p>
+        <p className="mt-1 truncate text-[12px] text-[#7d8387]">
+          By {owner?.display_name || owner?.username || "creator"}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+function PostTile({ post, meta }: { post: any; meta: TopicMeta }) {
+  const owner = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
+  const media =
+    (Array.isArray(post.media_urls) && post.media_urls[0]) ||
+    post.media_url ||
+    null;
+  const title =
+    post.title?.trim() || post.content?.slice(0, 40)?.trim() || "Untitled post";
+
+  return (
+    <Link
+      href={`/post/${post.id}`}
+      className="group block overflow-hidden rounded-2xl border border-[#ecebe5] bg-white transition active:scale-[0.98]"
+    >
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#f4f3ee]">
+        {media ? (
+          <Image src={media} alt="" fill className="object-cover" unoptimized />
+        ) : (
+          <span className="grid h-full w-full place-items-center text-[64px] opacity-25">
+            {meta.emoji}
+          </span>
+        )}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+        <span className="absolute left-2.5 top-2.5 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-white backdrop-blur">
+          Post
+        </span>
+      </div>
+      <div className="bg-[#f4f2ec] p-3">
+        <p className="line-clamp-2 text-[14px] font-semibold leading-[1.25] text-[#14181c]">
+          {title}
+        </p>
+        <p className="mt-1 truncate text-[12px] text-[#7d8387]">
+          By {owner?.display_name || owner?.username || "creator"}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+function ClipTile({ clip, meta }: { clip: any; meta: TopicMeta }) {
+  const owner = Array.isArray(clip.profiles) ? clip.profiles[0] : clip.profiles;
+  const media =
+    (Array.isArray(clip.media_urls) && clip.media_urls[0]) ||
+    clip.media_url ||
+    null;
+  const title =
+    clip.title?.trim() || clip.content?.slice(0, 40)?.trim() || "Clip";
+
+  return (
+    <Link
+      href={`/post/${clip.id}`}
+      className="group block overflow-hidden rounded-2xl border border-[#ecebe5] bg-white transition active:scale-[0.98]"
+    >
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
+        {media ? (
+          <video
+            src={media}
+            className="h-full w-full object-cover"
+            muted
+            playsInline
+            preload="metadata"
+          />
+        ) : (
+          <span className="grid h-full w-full place-items-center text-[64px] opacity-30">
+            {meta.emoji}
+          </span>
+        )}
+        <div className="pointer-events-none absolute inset-0 grid place-items-center">
+          <div className="grid h-12 w-12 place-items-center rounded-full bg-black/50 backdrop-blur">
+            <Play className="h-5 w-5 fill-white text-white" />
+          </div>
+        </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2.5">
+          <span className="rounded-full bg-[#b7f23a] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#14181c]">
+            Clip
+          </span>
+        </div>
+      </div>
+      <div className="bg-[#f4f2ec] p-3">
+        <p className="line-clamp-2 text-[14px] font-semibold leading-[1.25] text-[#14181c]">
+          {title}
+        </p>
+        <p className="mt-1 truncate text-[12px] text-[#7d8387]">
+          By {owner?.display_name || owner?.username || "creator"}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+/* =========================================================================
+   Creator row
+   ========================================================================= */
+
+function CreatorRow({ person }: { person: any }) {
+  const name = person.display_name || person.username || "Pull member";
+  return (
+    <Link
+      href={`/profile/${person.username || person.id}`}
+      className="flex items-center gap-3 rounded-2xl border border-[#ecebe5] bg-white px-3.5 py-3 transition active:scale-[0.99] active:bg-[#fafbf6]"
+    >
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#14181c] text-[15px] font-semibold text-[#b7f23a]">
+        {person.avatar_url ? (
+          <Image
+            src={person.avatar_url}
+            alt=""
+            width={48}
+            height={48}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          name.charAt(0).toUpperCase()
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[14.5px] font-semibold text-[#14181c]">
+          {name}
+        </p>
+        <p className="truncate text-[12.5px] text-[#7d8387]">
+          @{person.username || "member"}
+          {person.follower_count ? ` · ${person.follower_count} allies` : ""}
+        </p>
+        {person.bio && (
+          <p className="mt-0.5 line-clamp-1 text-[12px] text-[#5c6360]">
+            {person.bio}
+          </p>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+/* =========================================================================
+   Empty + skeleton
+   ========================================================================= */
+
+function EmptyState({ meta, topicKey }: { meta: TopicMeta; topicKey: string }) {
+  return (
+    <div className="py-14 text-center">
+      <div
+        className={`mx-auto mb-4 grid h-20 w-20 place-items-center rounded-3xl bg-gradient-to-br ${meta.gradient} text-[36px]`}
+      >
+        {meta.emoji}
+      </div>
+      <p className="text-[16px] font-semibold">Nothing here yet</p>
+      <p className="mx-auto mt-2 max-w-[280px] text-[13px] leading-[1.5] text-[#7d8387]">
+        Be the first to publish a {meta.label} Forge or tag a post with{" "}
+        <span className="font-semibold text-[#14181c]">#{topicKey}</span>.
+      </p>
+    </div>
+  );
+}
+
+function TopicSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-3 animate-pulse" aria-busy="true">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="overflow-hidden rounded-2xl border border-[#ecebe5]">
+          <div className="aspect-[4/5] w-full bg-[#f4f3ee]" />
+          <div className="bg-[#f4f2ec] p-3">
+            <div className="h-3.5 w-3/4 rounded bg-[#e8e6df]" />
+            <div className="mt-2 h-3 w-1/2 rounded bg-[#e8e6df]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
