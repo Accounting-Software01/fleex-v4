@@ -1,5 +1,11 @@
 import type { ForgeTemplate } from '@/lib/forge-templates'
 
+export type ForgeAsset = {
+  key: string          // e.g. "book:abc123"
+  file: File
+  mime: string         // 'application/pdf'
+}
+
 export type ForgeDraft = {
   name: string
   description: string
@@ -8,6 +14,7 @@ export type ForgeDraft = {
   sourceMode?: 'link' | 'zip'
   sourceUrl?: string
   zipFile?: File | null
+  extraAssets?: ForgeAsset[]     // ← NEW
   isCollaborative?: boolean
   isPublicPreview?: boolean
 }
