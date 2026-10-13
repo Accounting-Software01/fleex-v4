@@ -66,8 +66,11 @@ interface Fleex {
   } | null
 }
 
-export default function FleexPage() {
+
+
+  function FleexContent() {
   const supabase = useMemo(() => createClient(), [])
+    
   const router = useRouter()
   const { requireAuth } = useAuthGate()
   const currentUserRef = useRef<any>(null)
@@ -737,5 +740,19 @@ function ReelActionButton({
       <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 backdrop-blur-md transition hover:bg-black/70">{children}</span>
       <span className="max-w-16 truncate drop-shadow">{count || text}</span>
     </button>
+  )
+}
+
+export default function FleexPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-[100dvh] items-center justify-center bg-[#1f2326] text-white">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-[#b7f23a]" />
+        </div>
+      }
+    >
+      <FleexContent />
+    </Suspense>
   )
 }
