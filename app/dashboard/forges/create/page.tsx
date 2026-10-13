@@ -12,11 +12,6 @@ import {
   Gamepad2,
   Info,
   Check,
-  Home,
-  Search,
-  Clapperboard,
-  MessageCircle,
-  User,
 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -211,8 +206,8 @@ function ForgeTemplateSelectionContent() {
 
       {/* Continue button */}
       <div
-        className="px-4 pb-4"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}
+        className="px-4 pb-6"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
       >
         <button
           type="button"
@@ -227,58 +222,7 @@ function ForgeTemplateSelectionContent() {
           Continue
         </button>
       </div>
-
-      {/* Bottom nav */}
-      <nav
-        className="sticky bottom-0 mt-1 flex items-center justify-around border-t border-[#eef1ed] bg-white/95 backdrop-blur-xl"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-      >
-        <NavItem icon={Home} label="Feed" active />
-        <NavItem icon={Search} label="Discover" />
-        <NavItem icon={Clapperboard} label="Clips" />
-        <NavItem icon={MessageCircle} label="Messages" dot />
-        <NavItem icon={User} label="Profile" />
-      </nav>
     </main>
-  )
-}
-
-function NavItem({
-  icon: Icon,
-  label,
-  active,
-  dot,
-}: {
-  icon: typeof Home
-  label: string
-  active?: boolean
-  dot?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      className="relative flex flex-1 flex-col items-center gap-1 py-2.5"
-    >
-      <div className="relative">
-        <Icon
-          className={`h-6 w-6 ${active ? 'text-[#121518]' : 'text-[#98a0a6]'}`}
-          strokeWidth={active ? 2.4 : 1.9}
-        />
-        {dot && (
-          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#b7f23a]" />
-        )}
-      </div>
-      <span
-        className={`text-[11px] ${
-          active ? 'font-semibold text-[#121518]' : 'font-medium text-[#98a0a6]'
-        }`}
-      >
-        {label}
-      </span>
-      {active && (
-        <span className="absolute bottom-0 h-[2px] w-8 rounded-full bg-[#b7f23a]" />
-      )}
-    </button>
   )
 }
 
@@ -288,4 +232,4 @@ export default function ForgeTemplateSelectionPage() {
       <ForgeTemplateSelectionContent />
     </Suspense>
   )
-                  }
+}
