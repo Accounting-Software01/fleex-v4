@@ -1,7 +1,7 @@
 'use client'
 import { Suspense, useState } from 'react'
 import Image from 'next/image'
-import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Sparkles, Search } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { BlogForgeForm } from '@/components/forges/create/BlogForgeForm'
@@ -19,24 +19,30 @@ const templates: Array<{
   name: string
   description: string
   image: string
-  wide?: boolean
+  accent: string       // NEW: per-template accent for visual rhythm
+  badge?: string       // NEW: e.g. "Popular"
 }> = [
-  { key: 'portfolio', name: 'Portfolio', description: 'Showcase your work and projects.', image: '/portfolio-3d.png' },
-  { key: 'blog', name: 'Blog', description: 'Write and share articles.', image: '/blog-3d.png' },
-  { key: 'gallery', name: 'Gallery', description: 'Display images and artwork.', image: '/gallery-3d.png' },
-  { key: 'shop', name: 'Shop', description: 'Sell products and services.', image: '/shop-3d.png' },
-  { key: 'donation', name: 'Donation', description: 'Collect donations or tips.', image: '/donation-3d.png' },
-  { key: 'game', name: 'Game', description: 'Create mini-games.', image: '/game-3d.png' },
-  { key: 'custom', name: 'Custom', description: 'Code your own forge.', image: '/custom-3d.png', wide: true },
+  { key: 'portfolio', name: 'Portfolio', description: 'Showcase your work and projects.', image: '/portfolio-3d.png', accent: 'from-[#e8f7b8] to-[#d4f088]', badge: 'Popular' },
+  { key: 'blog', name: 'Blog', description: 'Write and share articles.', image: '/blog-3d.png', accent: 'from-[#d9ecff] to-[#b8daf7]' },
+  { key: 'gallery', name: 'Gallery', description: 'Display images and artwork.', image: '/gallery-3d.png', accent: 'from-[#ffe8d9] to-[#ffc9b8]' },
+  { key: 'shop', name: 'Shop', description: 'Sell products and services.', image: '/shop-3d.png', accent: 'from-[#e8e0ff] to-[#cfc4f7]' },
+  { key: 'donation', name: 'Donation', description: 'Collect donations or tips.', image: '/donation-3d.png', accent: 'from-[#ffe0ec] to-[#f8bfd4]' },
+  { key: 'game', name: 'Game', description: 'Create mini-games.', image: '/game-3d.png', accent: 'from-[#d9f5f0] to-[#b3e8de]' },
+  { key: 'custom', name: 'Custom', description: 'Code your own forge.', image: '/custom-3d.png', accent: 'from-[#e2e8ed] to-[#c9d3db]' },
 ]
 
-
-  function ForgeTemplateSelectionContent() {
+function ForgeTemplateSelectionContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const selected = searchParams.get('template') as ForgeTemplate | null
   const [selecting, setSelecting] = useState<ForgeTemplate | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [query, setQuery] = useState('')
+
+  const filtered = templates.filter((t) =>
+    t.name.toLowerCase().includes(query.toLowerCase()) ||
+    t.description.toLowerCase().includes(query.toLowerCase())
+  )
 
   const selectTemplate = (template: ForgeTemplate) => {
     setSelecting(template)
@@ -80,64 +86,142 @@ const templates: Array<{
   }
 
   return (
-    <main className="min-h-[100dvh] overflow-hidden bg-[#fbfcfa] text-[#121518]">
-      <div className="mx-auto max-w-3xl px-5 pb-10 pt-4 sm:px-8 sm:pt-7">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl px-1 text-[17px] font-medium text-[#1e2427] transition hover:bg-[#f0f4ec] focus:outline-none focus:ring-2 focus:ring-[#b7f23a]"
-        >
-          <ArrowLeft className="h-6 w-6" strokeWidth={1.8} />
-          Back
-        </button>
+    <main className="relative min-h-[100dvh] bg-[#fbfcfa] text-[#121518] antialiased">
+      {/* Sticky mobile-native top bar */}
+      <header
+        className="sticky top-0 z-30 border-b border-[#eef1ed]/80 bg-[#fbfcfa]/90 backdrop-blur-xl"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      >
+        <div className="flex h-14 items-center justify-between px-3">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="Back"
+            className="grid h-11 w-11 place-items-center rounded-full text-[#121518] transition active:scale-95 active:bg-[#eef2ea]"
+          >
+            <ArrowLeft className="h-[22px] w-[22px]" strokeWidth={2.1} />
+          </button>
+          <div className="text-[15px] font-semibold tracking-[-0.01em]">Create</div>
+          <div className="h-11 w-11" aria-hidden />
+        </div>
+      </header>
 
-        <div className="relative mt-5">
-          <div className="pointer-events-none absolute -right-20 -top-12 h-44 w-52 rotate-[-28deg] rounded-[45%] bg-[#f2fbd5] opacity-80 blur-[1px] sm:-right-10" />
-          <Sparkles className="pointer-events-none absolute right-10 top-28 h-9 w-9 rotate-12 fill-[#b7f23a] text-[#8dce00] sm:right-24" strokeWidth={1.5} />
+      {/* Hero */}
+      <section className="relative px-5 pt-6 pb-5">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-12 top-0 h-36 w-44 rotate-[-25deg] rounded-[45%] bg-[#f2fbd5] opacity-70 blur-[1px]"
+        />
+        <Sparkles
+          aria-hidden
+          className="pointer-events-none absolute right-8 top-10 h-7 w-7 rotate-12 fill-[#b7f23a] text-[#8dce00]"
+          strokeWidth={1.5}
+        />
 
-          <div className="relative">
-            <div className="text-[40px] font-black tracking-[-0.08em] text-[#111518] sm:text-[48px]">pull<span className="text-[#b7f23a]">.</span></div>
-            <p className="mt-4 text-[12px] font-black uppercase tracking-[0.27em] text-[#85ad00]">Pull · Template Studio</p>
-            <h1 className="mt-2 max-w-[620px] text-[41px] font-black leading-[0.96] tracking-[-0.075em] sm:text-[58px]">Select a Template</h1>
-            <p className="mt-4 max-w-[650px] text-[17px] leading-[1.45] text-[#697278] sm:text-[20px]">Choose a template to get started. Each one is designed for a specific type of content.</p>
+        <div className="relative">
+          <div className="text-[34px] font-black leading-none tracking-[-0.075em]">
+            pull<span className="text-[#b7f23a]">.</span>
           </div>
+          <p className="mt-3 text-[11px] font-black uppercase tracking-[0.28em] text-[#85ad00]">
+            Template Studio
+          </p>
+          <h1 className="mt-2 text-[34px] font-black leading-[0.98] tracking-[-0.06em]">
+            Select a template
+          </h1>
+          <p className="mt-3 max-w-[34ch] text-[15px] leading-[1.5] text-[#697278]">
+            Pick a starting point. You can customize everything later.
+          </p>
         </div>
 
-        <div className="relative mt-7 grid grid-cols-2 gap-3.5 sm:gap-5">
-          {templates.map((template) => {
+        {/* Search */}
+        <div className="relative mt-5">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#98a0a6]" strokeWidth={2} />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            inputMode="search"
+            placeholder="Search templates"
+            className="h-12 w-full rounded-2xl border border-[#e7ebe6] bg-white pl-11 pr-4 text-[16px] text-[#121518] placeholder:text-[#98a0a6] shadow-[0_2px_8px_rgba(28,42,29,0.04)] outline-none transition focus:border-[#b7f23a] focus:ring-4 focus:ring-[#b7f23a]/25"
+          />
+        </div>
+      </section>
+
+      {/* Template list — native mobile stacked cards */}
+      <section className="px-4 pb-28">
+        <ul className="flex flex-col gap-3">
+          {filtered.map((template) => {
             const isSelecting = selecting === template.key
+            const disabled = Boolean(selecting)
             return (
-              <button
-                key={template.key}
-                type="button"
-                disabled={Boolean(selecting)}
-                onClick={() => selectTemplate(template.key)}
-                className={`group relative min-h-[202px] overflow-hidden rounded-[22px] border border-[#e7ebe6] bg-white p-3 text-left shadow-[0_5px_18px_rgba(28,42,29,0.06)] transition active:scale-[0.985] hover:-translate-y-0.5 hover:shadow-[0_9px_25px_rgba(28,42,29,0.1)] focus:outline-none focus:ring-2 focus:ring-[#b7f23a] sm:min-h-[260px] sm:rounded-[28px] sm:p-5 ${template.wide ? 'col-span-2 min-h-[146px] sm:min-h-[174px]' : ''} ${isSelecting ? 'opacity-60' : ''}`}
-              >
-                <div className={`${template.wide ? 'flex items-center gap-4 sm:gap-8' : ''}`}>
-                  <div className={`${template.wide ? 'h-[94px] w-[132px] shrink-0 sm:h-[118px] sm:w-[180px]' : 'h-[112px] w-full sm:h-[145px]'} relative`}>
-                    <Image src={template.image} alt="" fill sizes={template.wide ? '(max-width: 640px) 132px, 180px' : '(max-width: 640px) 45vw, 300px'} className="object-contain object-center transition duration-300 group-hover:scale-105" priority={template.key === 'portfolio' || template.key === 'blog'} />
+              <li key={template.key}>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => selectTemplate(template.key)}
+                  className={`group relative flex w-full items-center gap-4 rounded-[20px] border border-[#e7ebe6] bg-white p-3 pr-4 text-left shadow-[0_2px_10px_rgba(28,42,29,0.05)] transition active:scale-[0.985] active:bg-[#fafcf8] disabled:opacity-60 ${isSelecting ? 'ring-2 ring-[#b7f23a]/50' : ''}`}
+                >
+                  {/* Thumbnail */}
+                  <div className={`relative grid h-[72px] w-[72px] shrink-0 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br ${template.accent}`}>
+                    <Image
+                      src={template.image}
+                      alt=""
+                      width={64}
+                      height={64}
+                      className="h-14 w-14 object-contain transition duration-300 group-hover:scale-105"
+                      priority={template.key === 'portfolio' || template.key === 'blog'}
+                    />
                   </div>
-                  <div className={template.wide ? 'min-w-0 flex-1' : ''}>
-                    <h2 className="text-[20px] font-black tracking-[-0.055em] sm:text-[25px]">{template.name}</h2>
-                    <p className="mt-1 max-w-[230px] text-[13px] leading-[1.25] text-[#6d767b] sm:text-[16px]">{template.description}</p>
+
+                  {/* Text */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h2 className="truncate text-[17px] font-bold tracking-[-0.02em] text-[#121518]">
+                        {template.name}
+                      </h2>
+                      {template.badge && (
+                        <span className="shrink-0 rounded-full bg-[#efffc0] px-2 py-[2px] text-[10px] font-black uppercase tracking-[0.08em] text-[#5a7a00]">
+                          {template.badge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 line-clamp-2 text-[14px] leading-[1.35] text-[#6d767b]">
+                      {template.description}
+                    </p>
                   </div>
-                </div>
-                <span className="absolute bottom-3 right-3 grid h-10 w-10 place-items-center rounded-full bg-[#efffc0] text-[#121518] shadow-sm sm:bottom-5 sm:right-5 sm:h-11 sm:w-11" aria-hidden="true">
-                  {isSelecting ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#121518] border-t-transparent" /> : <ArrowRight className="h-5 w-5" strokeWidth={2.3} />}
-                </span>
-              </button>
+
+                  {/* Chevron */}
+                  <span
+                    aria-hidden
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f4f7f0] text-[#121518] transition group-active:bg-[#efffc0]"
+                  >
+                    {isSelecting ? (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#121518] border-t-transparent" />
+                    ) : (
+                      <ArrowRight className="h-[18px] w-[18px]" strokeWidth={2.4} />
+                    )}
+                  </span>
+                </button>
+              </li>
             )
           })}
-        </div>
-      </div>
+        </ul>
+
+        {filtered.length === 0 && (
+          <div className="mt-12 text-center">
+            <p className="text-[15px] text-[#6d767b]">
+              No templates match "{query}"
+            </p>
+          </div>
+        )}
+      </section>
     </main>
   )
 }
+
 export default function ForgeTemplateSelectionPage() {
   return (
     <Suspense fallback={<div className="min-h-[100dvh] bg-[#fbfcfa]" />}>
       <ForgeTemplateSelectionContent />
     </Suspense>
   )
-}
+                    }
