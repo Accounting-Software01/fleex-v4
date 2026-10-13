@@ -11,7 +11,6 @@ import {
   AtSign,
   BriefcaseBusiness,
   Check,
-  FolderKanban,
   Globe2,
   Group,
   Loader2,
@@ -103,18 +102,14 @@ function SearchContent() {
   const [following, setFollowing] = useState<Set<string>>(new Set());
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [followLoading, setFollowLoading] = useState<string | null>(null);
-  const [recommendedPeople, setRecommendedPeople] = useState<PersonResult[]>(
-    [],
-  );
-  const [recommendedForges, setRecommendedForges] = useState<ContentResult[]>(
-    [],
-  );
+  const [recommendedPeople, setRecommendedPeople] = useState<PersonResult[]>([]);
+  const [recommendedForges, setRecommendedForges] = useState<ContentResult[]>([]);
 
   const loadRecommendedProfiles = async (excludeUserId?: string) => {
     let request = supabase
       .from("profiles")
       .select(
-        "id, username, display_name, avatar_url, bio, follower_count, forge_count, is_verified, is_official",
+        "id, username, display_name, avatar_url, bio, follower_count, forge_count, is_verified, is_official"
       )
       .order("follower_count", { ascending: false, nullsFirst: false })
       .limit(8);
@@ -127,17 +122,16 @@ function SearchContent() {
       return;
     }
 
-    // Fallback for projects whose profiles table has stricter RLS.
     try {
       const response = await fetch(
-        "/api/search?type=people&recommended=true&limit=8",
+        "/api/search?type=people&recommended=true&limit=8"
       );
       if (!response.ok) return;
       const fallback = await response.json();
       setRecommendedPeople(
         (fallback.people || fallback.profiles || [])
           .filter((person: PersonResult) => person.id !== excludeUserId)
-          .slice(0, 8),
+          .slice(0, 8)
       );
     } catch (fallbackError) {
       console.error("[Pull recommendations] error:", fallbackError);
@@ -148,13 +142,33 @@ function SearchContent() {
     const { data, error } = await supabase
       .from("forges")
       .select(
-        "id, name, description, template_type, user_id, config, is_published, is_public_preview, updated_at, created_at",
+        "id, name, description, template_type, user_id, config, is_published, is_public_preview, updated_at, created_at"
       )
       .or("is_published.eq.true,is_public_preview.eq.true")
       .order("updated_at", { ascending: false, nullsFirst: false })
       .limit(8);
 
     if (!error && data) {
+      /* ---- Fetch uploaded cover images from forge_assets ---- */
+      const forgeIds = data.map((forge: any) => forge.id);
+      const { data: assetRows } = forgeIds.length
+        ? await supabase
+            .from("forge_assets")
+            .select("forge_id, url, mime, created_at")
+            .in("forge_id", forgeIds)
+            .like("mime", "image/%")
+            .order("created_at", { ascending: true })
+        : { data: [] };
+
+      const forgeAssetsByForge = new Map<string, string>();
+      for (const row of assetRows || []) {
+        // Keep only the first image per forge
+        if (!forgeAssetsByForge.has(row.forge_id)) {
+          forgeAssetsByForge.set(row.forge_id, row.url);
+        }
+      }
+
+      /* ---- Fetch owners ---- */
       const ownerIds = [
         ...new Set(data.map((forge: any) => forge.user_id).filter(Boolean)),
       ];
@@ -165,20 +179,22 @@ function SearchContent() {
             .in("id", ownerIds)
         : { data: [] };
       const ownersById = new Map(
-        (owners || []).map((owner: any) => [owner.id, owner]),
+        (owners || []).map((owner: any) => [owner.id, owner])
       );
 
+      /* ---- Build results ---- */
       const forgeResults = await Promise.all(
         data.map(async (forge: any) => {
           const owner = ownersById.get(forge.user_id);
           const { data: contributorRows } = await supabase
             .from("forge_contributors")
             .select(
-              "user_id, joined_at, profiles(id, username, display_name, avatar_url)",
+              "user_id, joined_at, profiles(id, username, display_name, avatar_url)"
             )
             .eq("forge_id", forge.id)
             .order("joined_at", { ascending: false })
             .limit(4);
+
           const ownerMember = owner
             ? [
                 {
@@ -194,8 +210,9 @@ function SearchContent() {
             .filter(Boolean);
           const members = [...ownerMember, ...contributorMembers].filter(
             (member, index, list) =>
-              list.findIndex((item) => item.id === member.id) === index,
+              list.findIndex((item) => item.id === member.id) === index
           );
+
           return {
             id: forge.id,
             name: forge.name,
@@ -214,21 +231,23 @@ function SearchContent() {
               forge.config?.heroImage ||
               (Array.isArray(forge.config?.images)
                 ? forge.config.images[0]
-                : null),
+                : null) ||
+              forgeAssetsByForge.get(forge.id) ||
+              null,
             members_count: members.length,
             active_members: members.slice(0, 3),
             created_at: forge.updated_at || forge.created_at,
           };
-        }),
+        })
       );
+
       setRecommendedForges(forgeResults as ContentResult[]);
       return;
     }
 
-    // Fallback for projects where public Forge reads are exposed through the search API.
     try {
       const response = await fetch(
-        "/api/search?type=forges&recommended=true&limit=8",
+        "/api/search?type=forges&recommended=true&limit=8"
       );
       if (!response.ok) return;
       const fallback = await response.json();
@@ -269,7 +288,7 @@ function SearchContent() {
     };
 
     loadUser().catch((error) =>
-      console.error("[Pull search] user loading error:", error),
+      console.error("[Pull search] user loading error:", error)
     );
   }, [supabase]);
 
@@ -283,7 +302,7 @@ function SearchContent() {
     setLoading(true);
     try {
       const response = await fetch(
-        `/api/search?q=${encodeURIComponent(cleanTerm)}&type=${kind}`,
+        `/api/search?q=${encodeURIComponent(cleanTerm)}&type=${kind}`
       );
       if (!response.ok)
         throw new Error(`Search failed with ${response.status}`);
@@ -318,7 +337,7 @@ function SearchContent() {
     const updated = [
       cleanTerm,
       ...recentSearches.filter(
-        (item) => item.toLowerCase() !== cleanTerm.toLowerCase(),
+        (item) => item.toLowerCase() !== cleanTerm.toLowerCase()
       ),
     ].slice(0, 6);
     setRecentSearches(updated);
@@ -330,9 +349,7 @@ function SearchContent() {
     const cleanTerm = query.trim();
     if (!cleanTerm) return;
     rememberSearch(cleanTerm);
-    router.push(
-      `/search?q=${encodeURIComponent(cleanTerm)}&type=${activeType}`,
-    );
+    router.push(`/search?q=${encodeURIComponent(cleanTerm)}&type=${activeType}`);
     performSearch(cleanTerm, activeType);
   };
 
@@ -387,43 +404,47 @@ function SearchContent() {
 
   const totalResults = Object.values(results).reduce(
     (total, items) => total + (items?.length || 0),
-    0,
+    0
   );
   const hasResults = totalResults > 0;
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-white text-[#14181c]">
-      <header className="sticky top-0 z-30 border-b border-[#e5e5e0] bg-white/95 px-4 py-4 backdrop-blur-md sm:px-6">
-        <div className="mx-auto w-full max-w-3xl">
-          <div className="mb-4 flex items-center gap-3">
+    <div className="min-h-[100dvh] w-full overflow-x-hidden bg-[#fbfaf6] text-[#14181c] antialiased">
+      {/* Sticky native header — nav row + search input + type chips */}
+      <header
+        className="sticky top-0 z-30 border-b border-[#ecebe5] bg-[#fbfaf6]/92 backdrop-blur-xl"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
+        <div className="mx-auto w-full max-w-3xl px-4 pb-3 pt-1">
+          {/* Nav bar */}
+          <div className="relative flex h-11 items-center justify-center">
             <button
               type="button"
               onClick={() => router.push("/dashboard")}
               aria-label="Back to dashboard"
-              className="rounded-full p-2 text-[#14181c] transition hover:bg-[#efefea] active:scale-95"
+              className="absolute left-0 grid h-9 w-9 place-items-center rounded-full text-[#14181c] transition active:scale-95 active:bg-black/5"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-5 w-5" strokeWidth={2.2} />
             </button>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xl font-semibold tracking-[-0.04em]">
-                Search Pull
-              </h1>
-              <p className="text-xs text-[#7d8387]">
-                Find people, ideas, news, and communities.
-              </p>
-            </div>
+            <h1 className="text-[16px] font-semibold tracking-[-0.01em]">
+              Search
+            </h1>
           </div>
 
-          <form onSubmit={submitSearch} className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#7d8387]" />
+          {/* Search input */}
+          <form onSubmit={submitSearch} className="relative mt-2">
+            <Search
+              className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#8b8f8a]"
+              strokeWidth={2.2}
+            />
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search keywords across Pull..."
-              aria-label="Search keywords across Pull"
+              placeholder="Search Pull"
+              aria-label="Search Pull"
               autoFocus
-              className="w-full rounded-2xl border border-[#d9d9d4] bg-[#fbfaf6] py-3.5 pl-12 pr-24 text-base outline-none transition focus:border-[#1f2326] focus:bg-white"
+              className="h-12 w-full rounded-2xl border border-[#e3e2dd] bg-white pl-11 pr-20 text-[16px] text-[#14181c] placeholder:text-[#9ca29c] outline-none transition focus:border-[#b7f23a] focus:bg-white focus:ring-2 focus:ring-[#b7f23a]/25"
             />
             {query && (
               <button
@@ -433,35 +454,45 @@ function SearchContent() {
                   setResults({});
                 }}
                 aria-label="Clear search"
-                className="absolute right-20 top-1/2 -translate-y-1/2 rounded-full p-1 text-[#7d8387] hover:bg-[#efefea]"
+                className="absolute right-[68px] top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-[#8b8f8a] transition active:scale-95 active:bg-black/5"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" strokeWidth={2.5} />
               </button>
             )}
             <button
               type="submit"
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-[#1f2326] px-4 py-2 text-sm font-semibold text-white transition hover:bg-black"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-xl bg-[#14181c] px-3.5 py-2 text-[13px] font-semibold text-white transition active:scale-95 disabled:opacity-50"
+              disabled={!query.trim()}
             >
               Search
             </button>
           </form>
 
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-            {SEARCH_TYPES.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => selectType(item.key)}
-                className={`shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition ${activeType === item.key ? "border-[#1f2326] bg-[#1f2326] text-white" : "border-[#d9d9d4] bg-white text-[#7d8387] hover:bg-[#efefea]"}`}
-              >
-                {item.label}
-              </button>
-            ))}
+          {/* Type chips */}
+          <div className="mt-3 -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]">
+            {SEARCH_TYPES.map((item) => {
+              const active = activeType === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => selectType(item.key)}
+                  className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition active:scale-95 ${
+                    active
+                      ? "border-[#14181c] bg-[#14181c] text-white"
+                      : "border-[#e3e2dd] bg-white text-[#5c6360] hover:bg-[#f4f5ef]"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+      {/* Content */}
+      <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-5">
         {loading ? (
           <SearchSkeleton />
         ) : query.trim() && hasResults ? (
@@ -492,6 +523,10 @@ function SearchContent() {
   );
 }
 
+/* =========================================================================
+   Results
+   ========================================================================= */
+
 function ResultsView({
   results,
   following,
@@ -506,55 +541,30 @@ function ResultsView({
   onFollow: (id: string) => void;
 }) {
   const sections = [
-    {
-      key: "people" as const,
-      label: "People",
-      icon: Users,
-      items: results.people || [],
-    },
-    {
-      key: "news" as const,
-      label: "News",
-      icon: Globe2,
-      items: results.news || [],
-    },
-    {
-      key: "forges" as const,
-      label: "Forges",
-      icon: BriefcaseBusiness,
-      items: results.forges || [],
-    },
-    {
-      key: "projects" as const,
-      label: "Projects",
-      icon: BriefcaseBusiness,
-      items: results.projects || [],
-    },
-    {
-      key: "groups" as const,
-      label: "Groups",
-      icon: Group,
-      items: results.groups || [],
-    },
+    { key: "people" as const, label: "People", icon: Users, items: results.people || [] },
+    { key: "news" as const, label: "News", icon: Globe2, items: results.news || [] },
+    { key: "forges" as const, label: "Forges", icon: BriefcaseBusiness, items: results.forges || [] },
+    { key: "projects" as const, label: "Projects", icon: BriefcaseBusiness, items: results.projects || [] },
+    { key: "groups" as const, label: "Groups", icon: Group, items: results.groups || [] },
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
       {sections.map((section) =>
         section.items.length ? (
           <section key={section.key}>
-            <div className="mb-3 flex items-center gap-2">
-              <section.icon className="h-4 w-4 text-[#8aae00]" />
-              <h2 className="text-sm font-bold uppercase tracking-[0.12em]">
+            <div className="mb-3 flex items-center gap-2 px-1">
+              <section.icon className="h-3.5 w-3.5 text-[#7a9c00]" strokeWidth={2.4} />
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#5c6360]">
                 {section.label}
               </h2>
-              <span className="text-xs text-[#7d8387]">
+              <span className="text-[11px] text-[#a8aca7]">
                 {section.items.length}
               </span>
             </div>
             {section.key === "people" ? (
-              <div className="space-y-3">
-                {(section.items as PersonResult[]).map((person) => (
+              <div className="overflow-hidden rounded-2xl border border-[#ecebe5] bg-white">
+                {(section.items as PersonResult[]).map((person, i) => (
                   <PersonResultCard
                     key={person.id}
                     person={person}
@@ -562,11 +572,12 @@ function ResultsView({
                     isCurrentUser={currentUserId === person.id}
                     isLoading={followLoading === person.id}
                     onFollow={() => onFollow(person.id)}
+                    isLast={i === section.items.length - 1}
                   />
                 ))}
               </div>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-3">
                 {(section.items as ContentResult[]).map((item) => (
                   <ContentResultCard
                     key={item.id}
@@ -577,11 +588,15 @@ function ResultsView({
               </div>
             )}
           </section>
-        ) : null,
+        ) : null
       )}
     </div>
   );
 }
+
+/* =========================================================================
+   Person card — mobile-native row
+   ========================================================================= */
 
 function PersonResultCard({
   person,
@@ -589,27 +604,34 @@ function PersonResultCard({
   isCurrentUser,
   isLoading,
   onFollow,
+  isLast,
 }: {
   person: PersonResult;
   isFollowing: boolean;
   isCurrentUser: boolean;
   isLoading: boolean;
   onFollow: () => void;
+  isLast?: boolean;
 }) {
   const name = person.display_name || person.username || "Pull member";
   return (
-    <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-[#deded9] bg-[#fbfaf6] p-4 transition hover:border-[#b7f23a]">
+    <div
+      className={`flex min-w-0 items-center gap-3 px-4 py-3.5 transition active:bg-[#fafbf6] ${
+        isLast ? "" : "border-b border-[#f0efea]"
+      }`}
+    >
       <Link
         href={`/profile/${person.username || person.id}`}
         className="shrink-0"
+        aria-label={`Open ${name}'s profile`}
       >
-        <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-[#1f2326] text-lg font-semibold text-[#b7f23a]">
+        <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#14181c] text-[15px] font-semibold text-[#b7f23a]">
           {person.avatar_url ? (
             <Image
               src={person.avatar_url}
-              alt={name}
-              width={56}
-              height={56}
+              alt=""
+              width={48}
+              height={48}
               className="h-full w-full object-cover"
             />
           ) : (
@@ -617,35 +639,50 @@ function PersonResultCard({
           )}
         </div>
       </Link>
-      <div className="min-w-0 flex-1">
-        <Link href={`/profile/${person.username || person.id}`}>
-          <div className="flex items-center gap-1.5">
-            <h3 className="truncate font-semibold hover:underline">{name}</h3>
-            {person.is_verified && (
-              <Check className="h-4 w-4 shrink-0 rounded-full bg-[#1f2326] p-0.5 text-[#b7f23a]" />
-            )}
-            {person.is_official && (
-              <span className="rounded-full bg-[#b7f23a] px-1.5 py-0.5 text-[9px] font-bold uppercase">
-                Official
-              </span>
-            )}
-          </div>
-          <p className="truncate text-sm text-[#7d8387]">
-            @{person.username || "member"}
-          </p>
-        </Link>
+
+      <Link
+        href={`/profile/${person.username || person.id}`}
+        className="min-w-0 flex-1"
+      >
+        <div className="flex items-center gap-1.5">
+          <h3 className="truncate text-[15px] font-semibold tracking-[-0.01em] text-[#14181c]">
+            {name}
+          </h3>
+          {person.is_verified && (
+            <Check
+              className="h-3.5 w-3.5 shrink-0 rounded-full bg-[#14181c] p-0.5 text-[#b7f23a]"
+              strokeWidth={3}
+            />
+          )}
+          {person.is_official && (
+            <span className="shrink-0 rounded-full bg-[#b7f23a] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-[#14181c]">
+              Official
+            </span>
+          )}
+        </div>
+        <p className="truncate text-[13px] text-[#7d8387]">
+          @{person.username || "member"}
+        </p>
         {person.bio && (
-          <p className="mt-1 line-clamp-1 text-xs text-[#535a5e]">
+          <p className="mt-0.5 line-clamp-1 text-[12px] leading-[1.4] text-[#5c6360]">
             {person.bio}
           </p>
         )}
-        <div className="mt-2 flex items-center gap-3 text-xs text-[#7d8387]">
-          <span>{person.follower_count || 0} allies</span>
-          <span>{person.forge_count || 0} forges</span>
+        <div className="mt-1 flex items-center gap-3 text-[11.5px] text-[#8b8f8a]">
+          <span className="font-semibold text-[#5c6360]">
+            {person.follower_count || 0}
+          </span>
+          <span>allies</span>
+          <span className="text-[#d0d3cf]">·</span>
+          <span className="font-semibold text-[#5c6360]">
+            {person.forge_count || 0}
+          </span>
+          <span>forges</span>
         </div>
-      </div>
+      </Link>
+
       {isCurrentUser ? (
-        <span className="shrink-0 rounded-full border border-[#d9d9d4] px-3 py-2 text-xs font-semibold text-[#7d8387]">
+        <span className="shrink-0 rounded-full border border-[#e3e2dd] px-3 py-1.5 text-[12px] font-semibold text-[#8b8f8a]">
           You
         </span>
       ) : (
@@ -653,16 +690,20 @@ function PersonResultCard({
           type="button"
           onClick={onFollow}
           disabled={isLoading}
-          className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition ${isFollowing ? "border border-[#d9d9d4] bg-white text-[#14181c]" : "bg-[#1f2326] text-white hover:bg-black"}`}
+          className={`shrink-0 rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition active:scale-95 disabled:opacity-50 ${
+            isFollowing
+              ? "border border-[#e3e2dd] bg-white text-[#14181c]"
+              : "bg-[#14181c] text-white"
+          }`}
         >
           {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <span className="inline-flex items-center gap-1">
               {isFollowing ? (
-                <UserCheck className="h-3.5 w-3.5" />
+                <UserCheck className="h-3 w-3" strokeWidth={2.6} />
               ) : (
-                <UserPlus className="h-3.5 w-3.5" />
+                <UserPlus className="h-3 w-3" strokeWidth={2.6} />
               )}
               {isFollowing ? "Allied" : "Ally"}
             </span>
@@ -673,6 +714,10 @@ function PersonResultCard({
   );
 }
 
+/* =========================================================================
+   Content cards — news, forges, projects, groups
+   ========================================================================= */
+
 function ContentResultCard({
   item,
   kind,
@@ -680,36 +725,27 @@ function ContentResultCard({
   item: ContentResult;
   kind: "news" | "forges" | "projects" | "groups";
 }) {
-  if (kind === "forges") {
-    return <ForgePostCard item={item} />;
-  }
+  if (kind === "forges") return <ForgePostCard item={item} />;
 
   const title = item.title || item.name || "Untitled result";
   const description = item.excerpt || item.description;
   const href =
     kind === "news" && item.url
       ? item.url
-      : kind === "forges"
-        ? `/preview/${item.id}`
-        : item.slug
-          ? `/${kind}/${item.slug}`
-          : `/${kind}/${item.id}`;
+      : item.slug
+        ? `/${kind}/${item.slug}`
+        : `/${kind}/${item.id}`;
   const Icon =
-    kind === "news"
-      ? Globe2
-      : kind === "forges"
-        ? BriefcaseBusiness
-        : kind === "projects"
-          ? BriefcaseBusiness
-          : Group;
+    kind === "news" ? Globe2 : kind === "projects" ? BriefcaseBusiness : Group;
+
   return (
     <Link
       href={href}
       target={kind === "news" && item.url ? "_blank" : undefined}
       rel={kind === "news" && item.url ? "noreferrer" : undefined}
-      className="group flex min-w-0 gap-3 rounded-2xl border border-[#deded9] bg-[#fbfaf6] p-3 transition hover:-translate-y-0.5 hover:border-[#b7f23a] hover:shadow-[0_10px_22px_rgba(31,35,38,0.07)]"
+      className="group flex min-w-0 gap-3 rounded-2xl border border-[#ecebe5] bg-white p-3 transition active:scale-[0.99] active:bg-[#fafbf6]"
     >
-      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#efefea]">
+      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#f0efea]">
         {item.image_url || item.thumbnail_url ? (
           <Image
             src={item.image_url || item.thumbnail_url || ""}
@@ -719,35 +755,35 @@ function ContentResultCard({
             unoptimized
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-[#8aae00]">
-            <Icon className="h-6 w-6" />
+          <div className="flex h-full items-center justify-center text-[#7a9c00]">
+            <Icon className="h-5 w-5" strokeWidth={2} />
           </div>
         )}
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="mb-1 flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8aae00]">
+          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7a9c00]">
             {kind}
           </span>
           {item.source && (
-            <span className="truncate text-xs text-[#a0a4a6]">
+            <span className="truncate text-[11px] text-[#a8aca7]">
               {item.source}
             </span>
           )}
         </div>
-        <h3 className="line-clamp-2 text-sm font-semibold leading-snug group-hover:underline">
+        <h3 className="line-clamp-2 text-[14px] font-semibold leading-snug tracking-[-0.01em] text-[#14181c]">
           {title}
         </h3>
         {description && (
-          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[#7d8387]">
+          <p className="mt-1 line-clamp-2 text-[12.5px] leading-[1.4] text-[#7d8387]">
             {description}
           </p>
         )}
-        <div className="mt-2 flex items-center gap-2 text-[11px] text-[#a0a4a6]">
+        <div className="mt-1.5 flex items-center gap-2 text-[11px] text-[#a8aca7]">
           {item.members_count !== undefined && (
             <span className="inline-flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              {item.members_count} members
+              <Users className="h-3 w-3" strokeWidth={2.2} />
+              {item.members_count}
             </span>
           )}
           {item.created_at && (
@@ -763,9 +799,6 @@ function ForgePostCard({ item }: { item: ContentResult }) {
   const title = item.title || item.name || "Untitled Forge";
   const creatorName =
     item.display_name || item.creator_username || "Pull creator";
-  const creatorHandle = item.creator_username
-    ? `@${item.creator_username}`
-    : "Creator";
   const templateLabel = (
     item.template_type ||
     item.source ||
@@ -777,9 +810,9 @@ function ForgePostCard({ item }: { item: ContentResult }) {
   return (
     <Link
       href={`/preview/${item.id}`}
-      className="group flex min-w-0 gap-4 border border-[#deded9] bg-white p-3 transition hover:border-[#1f2326] hover:shadow-[0_10px_24px_rgba(31,35,38,0.08)] sm:gap-5 sm:p-4"
+      className="group flex min-w-0 gap-3 overflow-hidden rounded-2xl border border-[#ecebe5] bg-white p-3 transition active:scale-[0.99] active:bg-[#fafbf6]"
     >
-      <div className="relative h-32 w-[37%] shrink-0 overflow-hidden bg-[#edf1eb] sm:h-36 sm:w-44">
+      <div className="relative h-28 w-24 shrink-0 overflow-hidden rounded-xl bg-[#eef5d9]">
         {coverImage ? (
           <Image
             src={coverImage}
@@ -789,28 +822,25 @@ function ForgePostCard({ item }: { item: ContentResult }) {
             unoptimized
           />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 bg-[#eef5d9] text-[#5e7800]">
-            <BriefcaseBusiness className="h-7 w-7" strokeWidth={1.5} />
-            <span className="text-[9px] font-black uppercase tracking-[0.15em]">
+          <div className="flex h-full flex-col items-center justify-center gap-1 text-[#5e7800]">
+            <BriefcaseBusiness className="h-6 w-6" strokeWidth={1.6} />
+            <span className="text-[9px] font-black uppercase tracking-[0.14em]">
               Forge
             </span>
           </div>
         )}
-        <span className="absolute left-2 top-2 bg-[#b7f23a] px-2 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-[#14181c]">
-          Forge
-        </span>
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
+      <div className="flex min-w-0 flex-1 flex-col justify-between">
         <div>
-          <div className="flex items-center gap-2 text-[10px] text-[#7d8387]">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#1f2326] text-[10px] font-bold text-[#b7f23a]">
+          <div className="flex items-center gap-2">
+            <div className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#14181c] text-[9px] font-bold text-[#b7f23a]">
               {item.avatar_url ? (
                 <Image
                   src={item.avatar_url}
-                  alt={creatorName}
-                  width={24}
-                  height={24}
+                  alt=""
+                  width={20}
+                  height={20}
                   className="h-full w-full object-cover"
                   unoptimized
                 />
@@ -818,68 +848,58 @@ function ForgePostCard({ item }: { item: ContentResult }) {
                 creatorName.charAt(0).toUpperCase()
               )}
             </div>
-            <span className="truncate font-semibold text-[#14181c]">
+            <span className="truncate text-[11.5px] text-[#5c6360]">
               By {creatorName}
             </span>
-            <span className="hidden truncate sm:inline">{creatorHandle}</span>
           </div>
-          <p className="mt-2 text-[10px] font-black uppercase tracking-[0.15em] text-[#6f9000]">
+          <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#7a9c00]">
             {templateLabel}
           </p>
-          <h3 className="mt-1 line-clamp-2 text-lg font-black leading-tight tracking-[-0.05em] text-[#14181c] group-hover:underline sm:text-xl">
+          <h3 className="mt-0.5 line-clamp-2 text-[15px] font-semibold leading-[1.2] tracking-[-0.02em] text-[#14181c]">
             {title}
           </h3>
           {item.description && (
-            <p className="mt-1 line-clamp-1 text-xs text-[#697278] sm:text-sm">
+            <p className="mt-1 line-clamp-1 text-[12px] text-[#7d8387]">
               {item.description}
             </p>
           )}
         </div>
 
-        <div className="mt-3 flex min-w-0 items-center gap-2 text-[11px] text-[#697278] sm:gap-3 sm:text-xs">
-          <span className="shrink-0">{item.members_count || 0} members</span>
-          <span className="text-[#c2c8c2]">·</span>
-          <div className="flex shrink-0 -space-x-2">
-            {activeMembers.length ? (
-              activeMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="h-6 w-6 overflow-hidden rounded-full border-2 border-white bg-[#1f2326] text-center text-[9px] font-bold leading-5 text-[#b7f23a]"
-                  title={member.display_name || member.username || "Member"}
-                >
-                  {member.avatar_url ? (
-                    <Image
-                      src={member.avatar_url}
-                      alt=""
-                      width={24}
-                      height={24}
-                      className="h-full w-full object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    (member.display_name || member.username || "M")
-                      .charAt(0)
-                      .toUpperCase()
-                  )}
-                </div>
-              ))
-            ) : (
-              <span className="text-[#a0a4a6]">No activity yet</span>
-            )}
-          </div>
+        <div className="mt-2 flex items-center gap-2 text-[11px] text-[#8b8f8a]">
+          <span>{item.members_count || 0} members</span>
           {activeMembers.length > 0 && (
             <>
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#11a94d]" />
-              <span className="hidden whitespace-nowrap sm:inline">
-                Active {formatForgeActivity(item.created_at)}
+              <span className="text-[#d0d3cf]">·</span>
+              <div className="flex -space-x-1.5">
+                {activeMembers.slice(0, 3).map((member) => (
+                  <div
+                    key={member.id}
+                    className="h-5 w-5 overflow-hidden rounded-full border-2 border-white bg-[#14181c] text-center text-[8px] font-bold leading-[16px] text-[#b7f23a]"
+                  >
+                    {member.avatar_url ? (
+                      <Image
+                        src={member.avatar_url}
+                        alt=""
+                        width={20}
+                        height={20}
+                        className="h-full w-full object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      (member.display_name || member.username || "M")
+                        .charAt(0)
+                        .toUpperCase()
+                    )}
+                  </div>
+                ))}
+              </div>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#11a94d]" />
+                {formatForgeActivity(item.created_at)}
               </span>
             </>
           )}
         </div>
-      </div>
-
-      <div className="flex shrink-0 items-center self-center text-[#697278] transition group-hover:translate-x-0.5 group-hover:text-[#14181c]">
-        <ArrowLeft className="h-5 w-5 rotate-180" />
       </div>
     </Link>
   );
@@ -889,78 +909,16 @@ function formatForgeActivity(value?: string | null) {
   if (!value) return "recently";
   const hours = Math.max(
     1,
-    Math.round((Date.now() - new Date(value).getTime()) / 3_600_000),
+    Math.round((Date.now() - new Date(value).getTime()) / 3_600_000)
   );
   if (hours < 24) return `${hours}h ago`;
   const days = Math.round(hours / 24);
   return `${days}d ago`;
 }
 
-function RecommendedProfiles({
-  people,
-  following,
-  currentUserId,
-  followLoading,
-  onFollow,
-}: {
-  people: PersonResult[];
-  following: Set<string>;
-  currentUserId: string | null;
-  followLoading: string | null;
-  onFollow: (id: string) => void;
-}) {
-  if (!people.length) return null;
-  return (
-    <section>
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-bold uppercase tracking-[0.12em]">
-            Recommended profiles
-          </h2>
-          <p className="mt-1 text-sm text-[#7d8387]">
-            People worth discovering on Pull.
-          </p>
-        </div>
-        <Users className="h-5 w-5 text-[#8aae00]" />
-      </div>
-      <div className="space-y-3">
-        {people.map((person) => (
-          <PersonResultCard
-            key={person.id}
-            person={person}
-            isFollowing={following.has(person.id)}
-            isCurrentUser={currentUserId === person.id}
-            isLoading={followLoading === person.id}
-            onFollow={() => onFollow(person.id)}
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function RecommendedForges({ forges }: { forges: ContentResult[] }) {
-  return (
-    <section>
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-bold uppercase tracking-[0.12em]">
-            Featured Forges
-          </h2>
-          <p className="mt-1 text-sm text-[#7d8387]">
-            Explore public spaces built by Pull creators.
-          </p>
-        </div>
-        <BriefcaseBusiness className="h-5 w-5 text-[#8aae00]" />
-      </div>
-      <div className="space-y-4">
-        {forges.map((forge) => (
-          <ContentResultCard key={forge.id} item={forge} kind="forges" />
-        ))}
-      </div>
-    </section>
-  );
-}
+/* =========================================================================
+   Discover (no query)
+   ========================================================================= */
 
 function DiscoverState({
   recentSearches,
@@ -984,22 +942,55 @@ function DiscoverState({
   onClearRecent: () => void;
 }) {
   return (
-    <div className="space-y-9">
-      <RecommendedProfiles
-        people={recommendedPeople}
-        following={following}
-        currentUserId={currentUserId}
-        followLoading={followLoading}
-        onFollow={onFollow}
-      />
-      {recommendedForges.length > 0 && (
-        <RecommendedForges forges={recommendedForges} />
+    <div className="space-y-7">
+      {recommendedPeople.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center justify-between px-1">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#5c6360]">
+              People to know
+            </h2>
+            <Users className="h-3.5 w-3.5 text-[#7a9c00]" strokeWidth={2.4} />
+          </div>
+          <div className="overflow-hidden rounded-2xl border border-[#ecebe5] bg-white">
+            {recommendedPeople.map((person, i) => (
+              <PersonResultCard
+                key={person.id}
+                person={person}
+                isFollowing={following.has(person.id)}
+                isCurrentUser={currentUserId === person.id}
+                isLoading={followLoading === person.id}
+                onFollow={() => onFollow(person.id)}
+                isLast={i === recommendedPeople.length - 1}
+              />
+            ))}
+          </div>
+        </section>
       )}
+
+      {recommendedForges.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center justify-between px-1">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#5c6360]">
+              Featured Forges
+            </h2>
+            <BriefcaseBusiness
+              className="h-3.5 w-3.5 text-[#7a9c00]"
+              strokeWidth={2.4}
+            />
+          </div>
+          <div className="space-y-2.5">
+            {recommendedForges.map((forge) => (
+              <ContentResultCard key={forge.id} item={forge} kind="forges" />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
-        <div className="mb-4 flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-[#8aae00]" />
-          <h2 className="text-sm font-bold uppercase tracking-[0.12em]">
-            Trending keywords
+        <div className="mb-3 flex items-center gap-2 px-1">
+          <TrendingUp className="h-3.5 w-3.5 text-[#7a9c00]" strokeWidth={2.4} />
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#5c6360]">
+            Trending
           </h2>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1008,60 +999,60 @@ function DiscoverState({
               key={term}
               type="button"
               onClick={() => onSearch(term)}
-              className="rounded-full border border-[#d9d9d4] bg-[#fbfaf6] px-4 py-2.5 text-sm font-semibold transition hover:border-[#b7f23a] hover:bg-[#efffc8]"
+              className="rounded-full border border-[#e3e2dd] bg-white px-3.5 py-2 text-[13px] font-medium text-[#14181c] transition active:scale-95 active:bg-[#efffc8]"
             >
               {term}
             </button>
           ))}
         </div>
       </section>
+
       {recentSearches.length > 0 && (
         <section>
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-3 flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <AtSign className="h-4 w-4 text-[#7d8387]" />
-              <h2 className="text-sm font-bold uppercase tracking-[0.12em]">
-                Recent searches
+              <AtSign className="h-3.5 w-3.5 text-[#8b8f8a]" strokeWidth={2.4} />
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#5c6360]">
+                Recent
               </h2>
             </div>
             <button
               type="button"
               onClick={onClearRecent}
-              className="text-xs font-semibold text-[#7d8387] hover:text-red-600"
+              className="text-[12px] font-semibold text-[#8b8f8a] transition active:opacity-60"
             >
               Clear
             </button>
           </div>
-          <div className="space-y-2">
-            {recentSearches.map((term) => (
+          <div className="overflow-hidden rounded-2xl border border-[#ecebe5] bg-white">
+            {recentSearches.map((term, i) => (
               <button
                 key={term}
                 type="button"
                 onClick={() => onSearch(term)}
-                className="flex w-full items-center gap-3 rounded-xl border border-[#deded9] bg-[#fbfaf6] p-3 text-left text-sm transition hover:border-[#b7f23a]"
+                className={`flex w-full items-center gap-3 px-4 py-3 text-left text-[14px] text-[#14181c] transition active:bg-[#fafbf6] ${
+                  i === recentSearches.length - 1
+                    ? ""
+                    : "border-b border-[#f0efea]"
+                }`}
               >
-                <Search className="h-4 w-4 text-[#7d8387]" />
-                {term}
+                <Search
+                  className="h-4 w-4 shrink-0 text-[#8b8f8a]"
+                  strokeWidth={2.2}
+                />
+                <span className="truncate">{term}</span>
               </button>
             ))}
           </div>
         </section>
       )}
-      <div className="rounded-2xl border border-[#deded9] bg-[#fbfaf6] px-6 py-12 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#1f2326] text-[#b7f23a]">
-          <Search className="h-6 w-6" />
-        </div>
-        <h2 className="text-lg font-semibold tracking-[-0.03em]">
-          Search the whole Pull world
-        </h2>
-        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-[#7d8387]">
-          Use keywords to discover creators, news, forges, projects, and groups
-          in one place.
-        </p>
-      </div>
     </div>
   );
 }
+
+/* =========================================================================
+   Empty states
+   ========================================================================= */
 
 function EmptySearch({
   query,
@@ -1072,20 +1063,19 @@ function EmptySearch({
 }) {
   return (
     <div className="py-16 text-center">
-      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#efefea] text-[#7d8387]">
-        <Search className="h-8 w-8" />
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#f0efea] text-[#8b8f8a]">
+        <Search className="h-6 w-6" strokeWidth={2} />
       </div>
-      <h2 className="text-xl font-semibold tracking-[-0.03em]">
-        No matches for “{query}”
+      <h2 className="text-[17px] font-semibold tracking-[-0.02em]">
+        No matches for "{query}"
       </h2>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-[#7d8387]">
-        Try a broader keyword, a creator name, or a topic such as “AI”,
-        “design”, or “climate”.
+      <p className="mx-auto mt-2 max-w-sm text-[13px] leading-[1.5] text-[#7d8387]">
+        Try a broader keyword, a creator name, or a topic like "AI" or "design".
       </p>
       <button
         type="button"
         onClick={() => onSuggestion("AI creators")}
-        className="mt-6 rounded-full bg-[#1f2326] px-5 py-3 text-sm font-semibold text-white"
+        className="mt-6 rounded-full bg-[#14181c] px-5 py-2.5 text-[13px] font-semibold text-white transition active:scale-95"
       >
         Try a trending search
       </button>
@@ -1095,21 +1085,22 @@ function EmptySearch({
 
 function SearchSkeleton() {
   return (
-    <div className="space-y-8">
-      {[1, 2, 3].map((section) => (
+    <div className="space-y-7">
+      {[1, 2].map((section) => (
         <section key={section}>
-          <div className="mb-3 h-4 w-24 animate-pulse rounded-full bg-[#e5e5e0]" />
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[1, 2].map((item) => (
+          <div className="mb-3 h-3 w-20 animate-pulse rounded-full bg-[#e8e7e2]" />
+          <div className="overflow-hidden rounded-2xl border border-[#ecebe5] bg-white">
+            {[1, 2, 3].map((item, i) => (
               <div
                 key={item}
-                className="flex gap-3 rounded-2xl border border-[#efefea] p-3"
+                className={`flex items-center gap-3 px-4 py-3.5 ${
+                  i === 2 ? "" : "border-b border-[#f0efea]"
+                }`}
               >
-                <div className="h-16 w-16 animate-pulse rounded-xl bg-[#e5e5e0]" />
-                <div className="flex-1">
-                  <div className="h-4 w-2/3 animate-pulse rounded-full bg-[#e5e5e0]" />
-                  <div className="mt-3 h-3 w-full animate-pulse rounded-full bg-[#efefea]" />
-                  <div className="mt-2 h-3 w-1/2 animate-pulse rounded-full bg-[#efefea]" />
+                <div className="h-12 w-12 shrink-0 animate-pulse rounded-full bg-[#efeee9]" />
+                <div className="min-w-0 flex-1">
+                  <div className="h-3.5 w-2/5 animate-pulse rounded-full bg-[#efeee9]" />
+                  <div className="mt-2 h-3 w-3/5 animate-pulse rounded-full bg-[#f3f2ed]" />
                 </div>
               </div>
             ))}
@@ -1124,8 +1115,8 @@ export default function SearchPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-white">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#d9d9d4] border-t-[#1f2326]" />
+        <div className="flex min-h-[100dvh] items-center justify-center bg-[#fbfaf6]">
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#e3e2dd] border-t-[#14181c]" />
         </div>
       }
     >
