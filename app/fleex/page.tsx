@@ -190,35 +190,55 @@ export default function FleexPage() {
         comment_count: commentCounts.has(video.id) ? commentCounts.get(video.id)! : video.comment_count,
       }))
 
+
+
+
+
       hydratedVideos.sort((a, b) => {
-        const officialDifference = Number(officialIds.includes(b.user_id)) - Number(officialIds.includes(a.user_id))
-        return officialDifference || new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      })
+  const officialDifference =
+    Number(officialIds.includes(b.user_id)) -
+    Number(officialIds.includes(a.user_id))
+  return (
+    officialDifference ||
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  )
+})
 
-      if (pageNum === 1 || refresh) {
-        setFleex(hydratedVideos)
-        setPage(1)
-        setCurrentIndex(0)
-        setIsPlaying(true)
-        if (containerRef.current && refresh) containerRef.current.scrollTo({ top: 0, behavior: 'smooth' })
-      } else {
-        setFleex((previous) => [...previous, ...hydratedVideos])
-      }
+// If a specific clip was requested, pull it to the front
+let ordered = hydratedVideos
+if (pageNum === 1 && startId) {
+  const requested = ordered.find((v) => v.id === startId)
+  if (requested) {
+    ordered = [requested, ...ordered.filter((v) => v.id !== startId)]
+  }
+}
 
-      setHasMore(videosData.length === ITEMS_PER_PAGE)
+if (pageNum === 1 || refresh) {
+  setFleex(ordered)
+  setPage(1)
+  setCurrentIndex(0)
+  setIsPlaying(true)
+  if (containerRef.current && refresh) containerRef.current.scrollTo({ top: 0, behavior: 'smooth' })
+} else {
+  setFleex((previous) => [...previous, ...ordered])
+}
 
-      const user = currentUserRef.current
-      if (user && hydratedVideos.length) {
-        const ids = hydratedVideos.map((video) => video.id)
-        const [{ data: likes }, { data: saves }, { data: shares }] = await Promise.all([
-          supabase.from('fleex_likes').select('fleex_id').eq('user_id', user.id).in('fleex_id', ids),
-          supabase.from('fleex_saves').select('fleex_id').eq('user_id', user.id).in('fleex_id', ids),
-          supabase.from('fleex_timeline_shares').select('fleex_id').eq('user_id', user.id).in('fleex_id', ids),
-        ])
-        setLikedFleex((previous) => new Set([...previous, ...(likes?.map((like) => like.fleex_id) || [])]))
-        setSavedFleex((previous) => new Set([...previous, ...(saves?.map((save) => save.fleex_id) || [])]))
-        setSharedFleex((previous) => new Set([...previous, ...(shares?.map((share) => share.fleex_id) || [])]))
-      }
+setHasMore(videosData.length === ITEMS_PER_PAGE)
+
+const user = currentUserRef.current
+if (user && ordered.length) {
+  const ids = ordered.map((video) => video.id)
+  const [{ data: likes }, { data: saves }, { data: shares }] = await Promise.all([
+    supabase.from('fleex_likes').select('fleex_id').eq('user_id', user.id).in('fleex_id', ids),
+    supabase.from('fleex_saves').select('fleex_id').eq('user_id', user.id).in('fleex_id', ids),
+    supabase.from('fleex_timeline_shares').select('fleex_id').eq('user_id', user.id).in('fleex_id', ids),
+  ])
+  setLikedFleex((previous) => new Set([...previous, ...(likes?.map((like) => like.fleex_id) || [])]))
+  setSavedFleex((previous) => new Set([...previous, ...(saves?.map((save) => save.fleex_id) || [])]))
+  setSharedFleex((previous) => new Set([...previous, ...(shares?.map((share) => share.fleex_id) || [])]))
+}
+
+      
     } catch (error) {
       console.error('Error fetching fleex:', error)
     } finally {
