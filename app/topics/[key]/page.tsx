@@ -161,13 +161,20 @@ export default function TopicPage() {
               .limit(40)
           : Promise.resolve({ data: [] as any[] }),
 
-        supabase
-          .from("user_feeds")
-          .select("id, title, content, media_url, media_urls, media_type, user_id, created_at, tags, likes_count, comments_count, profiles:user_id(id, username, display_name, avatar_url)")
-          .not("tags", "is", null)
-          .order("created_at", { ascending: false })
-          .limit(200),
+        
 
+
+supabase
+  .from("user_feeds")
+  .select(
+    "id, title, content, media_url, media_urls, media_type, user_id, created_at, tags, likes_count, comments_count, profiles:user_id(id, username, display_name, avatar_url)"
+  )
+  .order("created_at", { ascending: false })
+  .limit(200),
+
+
+
+         
         supabase
           .from("user_fleex")
           .select("id, user_id, video_url, thumbnail_url, caption, view_count, like_count, comment_count, created_at, profiles:user_id(id, username, display_name, avatar_url)")
@@ -177,12 +184,29 @@ export default function TopicPage() {
           .limit(60),
       ]);
 
+
+
+
+       
+
       if (cancelled) return;
 
+       
+
       const allFeeds = feedsRes.data ?? [];
-      const matchingFeeds = allFeeds.filter((p: any) =>
-        normalizeTags(p.tags).includes(key)
-      );
+const lowerKey = key.toLowerCase();
+const matchingFeeds = allFeeds.filter((p: any) => {
+  // 1. Tag match
+  if (normalizeTags(p.tags).includes(key)) return true;
+  // 2. Title match
+  if (p.title?.toLowerCase().includes(lowerKey)) return true;
+  // 3. Content match
+  if (p.content?.toLowerCase().includes(lowerKey)) return true;
+  return false;
+});
+
+
+   
       const imageFeeds = matchingFeeds.filter((p: any) => p.media_type !== "video");
 
       const userIds = new Set<string>();
