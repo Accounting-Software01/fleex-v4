@@ -5,6 +5,7 @@ import type { MouseEvent, ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { useSearchParams } from 'next/navigation'
 import {
   Bookmark,
   Check,
@@ -96,6 +97,10 @@ export default function FleexPage() {
   const [hasSetInterest, setHasSetInterest] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [shareCopied, setShareCopied] = useState<string | null>(null)
+
+
+  const searchParams = useSearchParams()
+  const startId = searchParams.get('start')
 
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
