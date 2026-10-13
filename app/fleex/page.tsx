@@ -212,14 +212,45 @@ interface Fleex {
   )
 })
 
-// If a specific clip was requested, pull it to the front
+
+      
+
+// If a specific clip was requested, guarantee it's first
 let ordered = hydratedVideos
+
 if (pageNum === 1 && startId) {
-  const requested = ordered.find((v) => v.id === startId)
-  if (requested) {
+  const inResults = ordered.some((v) => v.id === startId)
+
+  if (inResults) {
+    // Already in the latest 10 — just move it to the front
+    const requested = ordered.find((v) => v.id === startId)!
     ordered = [requested, ...ordered.filter((v) => v.id !== startId)]
+  } else {
+    // Not in the latest 10 — fetch it directly by ID
+    const { data: direct } = await supabase
+      .from('user_fleex')
+      .select(`*, profiles:user_id (display_name, username, avatar_url, is_official, is_verified)`)
+      .eq('id', startId)
+      .eq('is_private', false)
+      .maybeSingle()
+
+    if (direct) {
+      const videoWithProfile: Fleex = {
+        ...direct,
+        like_count: Number(direct.like_count) || 0,
+        comment_count: Number(direct.comment_count) || 0,
+        display_name: direct.profiles?.display_name,
+        username: direct.profiles?.username,
+        avatar_url: direct.profiles?.avatar_url,
+        is_official: direct.profiles?.is_official,
+        is_verified: direct.profiles?.is_verified,
+      }
+      ordered = [videoWithProfile, ...ordered]
+    }
   }
 }
+
+      
 
 if (pageNum === 1 || refresh) {
   setFleex(ordered)
